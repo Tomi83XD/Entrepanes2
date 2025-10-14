@@ -1,0 +1,20 @@
+mutation SeedDatabase @auth(level: USER) {
+  product_insertMany(data: [
+    {
+      name: "Sandwich de Jamon",
+      description: "Delicious ham sandwich",
+      price: 5.99,
+      category: "Sandwiches",
+      createdAt: "2024-04-03T10:00:00Z",
+      imageUrl: "https://example.com/sandwich.jpg"
+    },
+    {
+      name: "Empanada Gallega",
+      description: "Traditional Galician Empanada",
+      price: 7.50,
+      category: "Empanadas",
+      createdAt: "2024-04-03T10:00:00Z",
+      imageUrl: "https://example.com/empanada.jpg"
+    }
+  ])
+}

@@ -1,0 +1,11 @@
+
+
+[build]
+  # Comando que usa Vite para construir tu aplicación (ya debería estar en package.json)
+  command = "npm run build"
+  # Directorio donde Vite coloca los archivos finales (Netlify sirve esto)
+  publish = "dist" 
+  
+[functions]
+  # Directorio donde Netlify buscará los archivos de tus funciones
+  directory = "functions"

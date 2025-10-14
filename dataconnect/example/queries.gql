@@ -1,0 +1,28 @@
+mutation CreateNewUser @auth(level: PUBLIC) {
+  user_insert(data: {
+    displayName: "New User",
+    email: "newuser@example.com",
+    passwordHash: "hashed_password"
+  })
+}
+
+query ListAllProducts @auth(level: PUBLIC) {
+  products {
+    id
+    name
+    description
+    price
+  }
+}
+
+mutation UpdateProductPrice($id: UUID!, $newPrice: Float!) @auth(level: USER) {
+  product_update(key: { id: $id }, data: { price: $newPrice })
+}
+
+query ListProductsCheaperThan10Dollars @auth(level: PUBLIC) {
+  products(where: { price: { lt: 10.0 } }) {
+    id
+    name
+    price
+  }
+}

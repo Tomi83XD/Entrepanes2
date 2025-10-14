@@ -1,0 +1,54 @@
+type User @table {
+  displayName: String!
+  email: String!
+  passwordHash: String!
+  createdAt: Timestamp!
+  shippingAddress: String
+  phoneNumber: String
+}
+
+type Product @table {
+  name: String!
+  price: Float!
+  description: String!
+  category: String!
+  createdAt: Timestamp!
+  imageUrl: String
+}
+
+type Ingredient @table {
+  name: String!
+  type: String!
+  unitPrice: Float!
+  description: String
+}
+
+type ProductIngredient @table(key: ["product", "ingredient"]) {
+  product: Product!
+  ingredient: Ingredient!
+  isDefault: Boolean!
+  isCustomizable: Boolean!
+}
+
+type Order @table {
+  user: User
+  orderDate: Timestamp!
+  totalAmount: Float!
+  status: String!
+  deliveryAddress: String!
+  deliveryTimeSlot: String!
+}
+
+type OrderItem @table {
+  order: Order
+  product: Product
+  quantity: Int!
+  subtotal: Float!
+}
+
+type OrderItemCustomization @table {
+  orderItem: OrderItem
+  ingredient: Ingredient
+  type: String!
+  customizationPrice: Float!
+}

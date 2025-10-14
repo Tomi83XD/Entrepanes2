@@ -1,0 +1,36 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ----------------------------------------
+# CREDENCIALES Y SCRIPTS DE ADMINISTRADOR SEGUROS
+# ----------------------------------------
+# **CRUCIAL: Archivo de clave privada de Firebase**
+serviceAccountKey.json
+# Script de un solo uso para asignar el rol de admin
+set-admin-claim.js
+# Ignorar claves de servicio de Firebase Admin
+serviceAccountKey.json
+serviceAccountKey.json.json
+    
