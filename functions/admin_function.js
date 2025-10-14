@@ -3,10 +3,27 @@ const admin = require('firebase-admin');
 
 // Inicializa Firebase Admin SDK (solo si aún no está inicializado)
 if (!admin.apps.length) {
-    // Aquí se carga tu clave de servicio de forma segura en Netlify
-    // El proceso de Netlify inyecta las credenciales automáticamente,
-    // o las toma de un archivo cargado.
-    admin.initializeApp(); 
+    // Verificar si la variable de entorno con la clave JSON está disponible.
+    const serviceAccountJson = process.env.FIREBASE_ADMIN_CONFIG;
+
+    if (serviceAccountJson) {
+        try {
+            // Parsear el JSON de la clave de servicio
+            const serviceAccount = JSON.parse(serviceAccountJson);
+
+            // Inicializar usando la clave explícita de Netlify
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount)
+            });
+        } catch (e) {
+            console.error("ERROR: No se pudo parsear FIREBASE_ADMIN_CONFIG:", e);
+            // Fallback a inicialización automática, aunque probablemente fallará sin Project ID
+            admin.initializeApp();
+        }
+    } else {
+        // Inicialización automática (solo si Netlify configura variables por defecto)
+        admin.initializeApp();
+    }
 }
 
 // Este es el punto de entrada (handler) que Netlify/Lambda busca
