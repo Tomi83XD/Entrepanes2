@@ -1,69 +1,164 @@
-// Importaciones necesarias
+// netlify/functions/admin_function.js
 const admin = require('firebase-admin');
 
-// Inicializa Firebase Admin SDK (solo si aún no está inicializado)
+// Inicializar Firebase Admin SDK (solo una vez)
 if (!admin.apps.length) {
-    // Verificar si la variable de entorno con la clave JSON está disponible.
-    const serviceAccountJson = process.env.FIREBASE_ADMIN_CONFIG;
-
-    if (serviceAccountJson) {
-        try {
-            // Parsear el JSON de la clave de servicio
-            const serviceAccount = JSON.parse(serviceAccountJson);
-
-            // Inicializar usando la clave explícita de Netlify
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount)
-            });
-        } catch (e) {
-            console.error("ERROR: No se pudo parsear FIREBASE_ADMIN_CONFIG:", e);
-            // Fallback a inicialización automática, aunque probablemente fallará sin Project ID
-            admin.initializeApp();
-        }
-    } else {
-        // Inicialización automática (solo si Netlify configura variables por defecto)
-        admin.initializeApp();
-    }
+    admin.initializeApp({
+        credential: admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+        })
+    });
 }
 
-// Este es el punto de entrada (handler) que Netlify/Lambda busca
-exports.handler = async function(event, context) {
-    // 1. Verificar que la solicitud sea un método GET (o el que esperes)
-    if (event.httpMethod !== "GET") {
-        return { statusCode: 405, body: "Método no permitido." };
-    }
-
-    // 2. Obtener el correo electrónico de la query string
-    const email = event.queryStringParameters.email;
-
-    if (!email) {
-        return { statusCode: 400, body: JSON.stringify({ message: "Se requiere el parámetro 'email'." }) };
+exports.handler = async (event, context) => {
+    // Solo permitir POST
+    if (event.httpMethod !== 'POST') {
+        return {
+            statusCode: 405,
+            body: JSON.stringify({ error: 'Método no permitido' })
+        };
     }
 
     try {
-        // 3. Obtener el usuario por correo electrónico
-        const user = await admin.auth().getUserByEmail(email);
+        // Obtener el token del header Authorization
+        const authHeader = event.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({ error: 'No autorizado - Token faltante' })
+            };
+        }
 
-        // 4. Asignar el custom claim "admin"
-        await admin.auth().setCustomUserClaims(user.uid, { admin: true });
+        const idToken = authHeader.split('Bearer ')[1];
+        
+        // Verificar el token y obtener los claims del usuario
+        let decodedToken;
+        try {
+            decodedToken = await admin.auth().verifyIdToken(idToken);
+        } catch (error) {
+            console.error('Error al verificar token:', error);
+            return {
+                statusCode: 401,
+                body: JSON.stringify({ error: 'Token inválido o expirado' })
+            };
+        }
 
-        // 5. Devolver una respuesta exitosa
-        return {
-            statusCode: 200,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                message: `Successfully set custom claim 'admin: true' for UID: ${user.uid} with email: ${email}` 
-            }),
-        };
+        // Verificar que el usuario tiene el claim 'admin: true'
+        if (!decodedToken.admin) {
+            return {
+                statusCode: 403,
+                body: JSON.stringify({ error: 'Acceso prohibido - No eres administrador' })
+            };
+        }
+
+        // Parsear el body de la solicitud
+        const requestBody = JSON.parse(event.body);
+        const { action } = requestBody;
+
+        // Manejar diferentes acciones
+        switch (action) {
+            case 'update_price': {
+                const { itemId, newPrice } = requestBody;
+
+                // Validaciones
+                if (!itemId || typeof newPrice !== 'number' || newPrice <= 0) {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: 'Datos inválidos. Verifica itemId y newPrice.' })
+                    };
+                }
+
+                // Actualizar el precio en Firestore
+                await admin.firestore()
+                    .collection('menu')
+                    .doc(itemId)
+                    .update({ price: newPrice });
+
+                return {
+                    statusCode: 200,
+                    body: JSON.stringify({ 
+                        message: `Precio actualizado a $${newPrice} exitosamente` 
+                    })
+                };
+            }
+
+            case 'add_product': {
+                const { name, price } = requestBody;
+
+                // Validaciones
+                if (!name || typeof name !== 'string' || name.trim() === '') {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: 'El nombre del producto es requerido' })
+                    };
+                }
+
+                if (typeof price !== 'number' || price <= 0) {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: 'El precio debe ser un número positivo' })
+                    };
+                }
+
+                // Agregar el nuevo producto a Firestore
+                const docRef = await admin.firestore()
+                    .collection('menu')
+                    .add({
+                        name: name.trim(),
+                        price: price,
+                        createdAt: admin.firestore.FieldValue.serverTimestamp()
+                    });
+
+                return {
+                    statusCode: 200,
+                    body: JSON.stringify({ 
+                        message: `Producto "${name}" agregado exitosamente`,
+                        productId: docRef.id
+                    })
+                };
+            }
+
+            case 'delete_product': {
+                // Esta acción es opcional, por si quieres implementar eliminación más adelante
+                const { itemId } = requestBody;
+
+                if (!itemId) {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: 'itemId es requerido' })
+                    };
+                }
+
+                await admin.firestore()
+                    .collection('menu')
+                    .doc(itemId)
+                    .delete();
+
+                return {
+                    statusCode: 200,
+                    body: JSON.stringify({ 
+                        message: 'Producto eliminado exitosamente' 
+                    })
+                };
+            }
+
+            default:
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({ error: `Acción desconocida: ${action}` })
+                };
+        }
 
     } catch (error) {
-        console.error("Error al setear el admin claim:", error);
-        
-        // Devolver un error
+        console.error('Error en admin_function:', error);
         return {
             statusCode: 500,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: `Error: ${error.message}` }),
+            body: JSON.stringify({ 
+                error: 'Error interno del servidor',
+                details: error.message 
+            })
         };
     }
 };
