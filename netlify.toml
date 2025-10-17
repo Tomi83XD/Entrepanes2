@@ -1,19 +1,8 @@
-# netlify.toml
-# Coloca este archivo en la raíz de tu proyecto
-
 [build]
-  # Comando para construir tu app (ajusta según tu proyecto)
   command = "npm run build"
-  # Carpeta donde se genera el build (ajusta según tu proyecto: dist, build, etc.)
   publish = "dist"
 
-# Configuración para SPA (Single Page Application)
-# Redirige todas las rutas a index.html para que React Router funcione
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-# Configuración de las funciones serverless
-[functions]
-  directory = "netlify/functions"
