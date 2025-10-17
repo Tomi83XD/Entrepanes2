@@ -1,25 +1,8 @@
+// src/components/Catalogo.jsx
 import React, { useState, useEffect } from 'react';
-
+import { db } from '../firebase.js';
+import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import Cart from './Cart'; 
-
-const sandwichesDeMiga = [
-  { id: 1, name: 'Jamón y Queso', description: 'Clásico jamón y queso', price: 2000, image: 'https://tumercaditovegano.com.ar/wp-content/uploads/2024/03/Sandwich-de-miga-jamon-y-queso-vegano-scaled.jpg' },
-  { id: 2, name: 'Salame Y Queso', description: 'Clásico salame y queso', price: 2000, image: 'https://dcdn-us.mitiendanube.com/stores/004/823/838/products/descarga-2-52c0934cc46a90250817182173158410-1024-1024.jpg' },
-  { id: 3, name: 'Miga de Ternera', description: 'Una ternera de 1° calidad y mayonesa', price: 3000, image: 'https://www.clarin.com/2022/12/06/yOnu4tCQx_2000x1500__1.jpg' },
-  { id: 4, name: 'Vegetariano', description: 'Queso, lechuga, tomate y mayonesa', price: 2500, image: 'https://cocinerosargentinos.com/content/recipes/original/sandwiches-de-miga-livianitos.5165.jpg' },
-  { id: 5, name: 'Miga de Pollo', description: 'Pollo desmenuzado, queso y mayonesa', price: 2500, image: 'https://www.rionegro.com.ar/wp-content/uploads/2021/05/sangg.jpg?w=920&h=517&crop=1' },
-  { id: 6, name: 'Huevo', description: 'Clásico JyQ con huevo', price: 2200, image: 'https://ramalloclub.com/wp-content/uploads/2021/03/d70a1b10e302586782fe2ac9887fa84fo-scaled.jpg' },
-  { id: 7, name: 'Primavera', description: 'Zanahoria, tomate, lechuga y queso', price: 2500, image: 'https://www.circuitogastronomico.com/wp-content/uploads/2022/12/armoniche-sand-jpeg.webp' },
-  { id: 8, name: 'Mixto', description: 'Jamón, queso y tomate', price: 2300, image: 'https://ramalloclub.com/wp-content/uploads/2021/03/6740dc2132bf70bf6617d320c67241e7o-scaled.jpg' },
-  { id: 9, name: 'Mini Sanguche clasico', description: 'Jamón Y queso', price: 1000, image: 'https://dcdn-us.mitiendanube.com/stores/001/147/470/products/sandiwch-miga-jamon-y-queso-a086902b80bddc799e17075120781205-640-0.jpg' },
-];
-
-const pebetes = [
-  { id: 10, name: 'Clásico: JyQ', description: 'Jamón, queso y mayonesa', price: 2000, image: 'https://http2.mlstatic.com/D_NQ_NP_2X_983521-MLA83177866752_042025-F.webp' },
-  { id: 11, name: 'Salame', description: 'Salame, queso y mayonesa', price: 2000, image: 'https://images.rappi.com.ar/products/1069222-1584565667732.jpg' },
-  { id: 12, name: 'Completo', description: 'Jamón, queso, lechuga y tomate', price: 2300, image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTPfeuk8j2063xlzCQeNLg4OAa1jONmxSVJmw&s' },
-  { id: 13, name: 'Ternera', description: 'Una ternera de 1° calidad y mayonesa', price: 2500, image: 'https://images.rappi.com.ar/restaurants_background/home-1625581095387.jpg?e=webp&d=200x200&q=50' },
-];
 
 function SocialButtons() {
   return (
@@ -54,7 +37,6 @@ function SocialButtons() {
   );
 }
 
-
 function NotificationPopup({ message, onHide }) {
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -70,8 +52,11 @@ function NotificationPopup({ message, onHide }) {
   );
 }
 
-
 function CatalogSection({ title, items, addToCart }) {
+  if (items.length === 0) {
+    return null;
+  }
+
   return (
     <section
       className="max-w-screen-xl mx-auto px-6 py-16"
@@ -84,37 +69,73 @@ function CatalogSection({ title, items, addToCart }) {
         {title}
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10">
-        {items.map(({ id, name, description, price, image }) => (
-          <article
-            key={id}
-            tabIndex={0}
-            role="button"
-            aria-pressed="false"
-            onClick={() => addToCart({ id, name, price, image })}
-            onKeyDown={(e) => { if (e.key === 'Enter') addToCart({ id, name, price, image }); }}
-            className="bg-yellow-900/75 backdrop-blur-lg rounded-3xl shadow-lg p-6 flex flex-col cursor-pointer focus:outline-none focus:ring-4 focus:ring-yellow-600 hover:shadow-xl transition-shadow"
-          >
-            <img
-              src={image}
-              alt={name}
-              className="rounded-xl object-cover mb-4 h-40 w-full"
-              loading="lazy"
-            />
-            <h3 className="text-xl font-semibold text-yellow-200 mb-2 select-none">{name}</h3>
-            <p className="text-yellow-100 flex-grow">{description}</p>
-            <p className="font-bold text-lg mt-4 text-yellow-400 select-none">${price}</p>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                addToCart({ id, name, price, image });
-              }}
-              type="button"
-              className="mt-4 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-semibold uppercase rounded-lg py-3 shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-yellow-300 select-none"
+        {items.map((item) => {
+          const finalPrice = item.discount > 0 
+            ? item.price - (item.price * item.discount / 100)
+            : item.price;
+
+          return (
+            <article
+              key={item.id}
+              tabIndex={0}
+              role="button"
+              aria-pressed="false"
+              onClick={() => addToCart({ ...item, finalPrice })}
+              onKeyDown={(e) => { if (e.key === 'Enter') addToCart({ ...item, finalPrice }); }}
+              className="bg-yellow-900/75 backdrop-blur-lg rounded-3xl shadow-lg p-6 flex flex-col cursor-pointer focus:outline-none focus:ring-4 focus:ring-yellow-600 hover:shadow-xl transition-shadow relative"
             >
-              Añadir al Carrito
-            </button>
-          </article>
-        ))}
+              {/* Badge de oferta */}
+              {item.discount > 0 && (
+                <div className="absolute top-4 right-4 bg-red-500 text-white font-bold px-3 py-1 rounded-full text-sm z-10">
+                  -{item.discount}%
+                </div>
+              )}
+              
+              {/* Badge de destacado */}
+              {item.featured && (
+                <div className="absolute top-4 left-4 bg-yellow-400 text-yellow-900 font-bold px-3 py-1 rounded-full text-sm z-10">
+                  ⭐ Destacado
+                </div>
+              )}
+
+              <img
+                src={item.image || 'https://via.placeholder.com/300x200?text=Sin+Imagen'}
+                alt={item.name}
+                className="rounded-xl object-cover mb-4 h-40 w-full"
+                loading="lazy"
+                onError={(e) => {
+                  e.target.src = 'https://via.placeholder.com/300x200?text=Sin+Imagen';
+                }}
+              />
+              <h3 className="text-xl font-semibold text-yellow-200 mb-2 select-none">{item.name}</h3>
+              {item.description && (
+                <p className="text-yellow-100 flex-grow text-sm mb-2">{item.description}</p>
+              )}
+              
+              <div className="mt-auto">
+                {item.discount > 0 ? (
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="font-bold text-lg text-yellow-400 select-none">${finalPrice.toFixed(0)}</p>
+                    <p className="text-sm text-yellow-300 line-through select-none">${item.price}</p>
+                  </div>
+                ) : (
+                  <p className="font-bold text-lg text-yellow-400 select-none mb-2">${item.price}</p>
+                )}
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addToCart({ ...item, finalPrice });
+                  }}
+                  type="button"
+                  className="w-full bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-semibold uppercase rounded-lg py-3 shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-yellow-300 select-none"
+                >
+                  Añadir al Carrito
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -124,6 +145,30 @@ export default function Catalogo() {
   const [cartItems, setCartItems] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
+  const [menuItems, setMenuItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Cargar productos desde Firebase
+  useEffect(() => {
+    const q = query(collection(db, 'menu'), orderBy('name'));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const items = [];
+      querySnapshot.forEach((doc) => {
+        items.push({ 
+          id: doc.id, 
+          ...doc.data() 
+        });
+      });
+      setMenuItems(items);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error al cargar productos:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const showPopup = () => {
     setShowNotification(true);
@@ -141,7 +186,11 @@ export default function Catalogo() {
           i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
         );
       } else {
-        return [...prevItems, { ...item, quantity: 1 }];
+        return [...prevItems, { 
+          ...item, 
+          quantity: 1,
+          price: item.finalPrice || item.price 
+        }];
       }
     });
     showPopup();
@@ -184,6 +233,27 @@ export default function Catalogo() {
 
   const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Categorizar productos
+  const sandwichesDeMiga = menuItems.filter(item => 
+    item.category === 'miga' || 
+    (!item.category && (item.name.toLowerCase().includes('miga') || item.name.toLowerCase().includes('mini')))
+  );
+  
+  const pebetes = menuItems.filter(item => 
+    item.category === 'pebete' || 
+    (!item.category && !sandwichesDeMiga.find(s => s.id === item.id))
+  );
+
+  const destacados = menuItems.filter(item => item.featured);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-yellow-700">
+        <div className="text-white text-2xl font-semibold">Cargando catálogo...</div>
+      </div>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-yellow-700 pt-20 pb-12 px-4 relative">
       <h1 className="text-center text-5xl font-serif font-extrabold text-white drop-shadow-lg mb-12 select-none">
@@ -203,8 +273,23 @@ export default function Catalogo() {
         )}
       </button>
 
-      <CatalogSection title="Sándwiches de Miga:" items={sandwichesDeMiga} addToCart={addToCart} />
-      <CatalogSection title="Pebetes:" items={pebetes} addToCart={addToCart} />
+      {destacados.length > 0 && (
+        <CatalogSection title="🌟 Productos Destacados:" items={destacados} addToCart={addToCart} />
+      )}
+      
+      {sandwichesDeMiga.length > 0 && (
+        <CatalogSection title="Sándwiches de Miga:" items={sandwichesDeMiga} addToCart={addToCart} />
+      )}
+      
+      {pebetes.length > 0 && (
+        <CatalogSection title="Pebetes:" items={pebetes} addToCart={addToCart} />
+      )}
+
+      {menuItems.length === 0 && (
+        <div className="text-center text-white text-xl py-20">
+          No hay productos disponibles en este momento.
+        </div>
+      )}
 
       {isCartOpen && (
         <Cart

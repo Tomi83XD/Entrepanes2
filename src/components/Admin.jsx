@@ -1,308 +1,410 @@
-// src/components/Admin.jsx
 import React, { useState, useEffect } from 'react';
-import { auth, db } from '../firebase.js';
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'; 
-import { collection, query, onSnapshot, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { Trash2, Edit, Save, X, Image, Tag, Eye, EyeOff, Plus } from 'lucide-react';
+
+// Simulación de auth y db (reemplaza con tus imports reales)
+const auth = { currentUser: { uid: 'admin123' } };
+const db = {};
 
 function AdminPanel() {
-    const [user, setUser] = useState(null);
-    const [isAdmin, setIsAdmin] = useState(false);
+    const [user, setUser] = useState({ uid: 'admin123' });
+    const [isAdmin, setIsAdmin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
-    const [adminMessage, setAdminMessage] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
-    const [menuItems, setMenuItems] = useState([]);
-    const [selectedItem, setSelectedItem] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [menuItems, setMenuItems] = useState([
+        { 
+            id: '1', 
+            name: 'Hamburguesa Clásica', 
+            price: 3000, 
+            description: 'Deliciosa hamburguesa con queso',
+            imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400',
+            category: 'Hamburguesas',
+            discount: 0,
+            isAvailable: true,
+            hasOffer: false
+        },
+        { 
+            id: '2', 
+            name: 'Pizza Margarita', 
+            price: 4500, 
+            description: 'Pizza con salsa de tomate y mozzarella',
+            imageUrl: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400',
+            category: 'Pizzas',
+            discount: 15,
+            isAvailable: true,
+            hasOffer: true
+        }
+    ]);
     
-    // Nuevos estados para agregar productos
-    const [newProductName, setNewProductName] = useState('');
-    const [newProductPrice, setNewProductPrice] = useState('');
+    const [newProduct, setNewProduct] = useState({
+        name: '',
+        price: '',
+        description: '',
+        imageUrl: '',
+        category: 'Hamburguesas',
+        discount: 0,
+        isAvailable: true,
+        hasOffer: false
+    });
+    
+    const [editingId, setEditingId] = useState(null);
+    const [editForm, setEditForm] = useState({});
     const [addProductMessage, setAddProductMessage] = useState('');
+    const [imagePreview, setImagePreview] = useState('');
+    
+    const categories = ['Hamburguesas', 'Pizzas', 'Bebidas', 'Postres', 'Ensaladas', 'Acompañamientos'];
 
-    // Hook 1: Escucha la autenticación y verifica el rol
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            setUser(currentUser);
-            setIsLoading(false);
-            
-            if (currentUser) {
-                try {
-                    const token = await currentUser.getIdTokenResult(true); 
-                    if (token.claims.admin) {
-                        setIsAdmin(true);
-                        setMessage('');
-                    } else {
-                        setIsAdmin(false);
-                        setMessage("Acceso denegado: No tienes permisos de administrador.");
-                        signOut(auth);
-                    }
-                } catch (error) {
-                    console.error("Error al verificar token:", error);
-                    setIsAdmin(false);
-                    setMessage("Error de verificación.");
-                    signOut(auth); 
+    const handleImageUpload = (e, isEditing = false) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                if (isEditing) {
+                    setEditForm({...editForm, imageUrl: reader.result});
+                } else {
+                    setNewProduct({...newProduct, imageUrl: reader.result});
+                    setImagePreview(reader.result);
                 }
-            } else {
-                setIsAdmin(false);
-                setMessage('');
-            }
-        });
-        return () => unsubscribe();
-    }, []);
-
-    // Hook 2: Carga la lista de ítems del menú si es admin
-    useEffect(() => {
-        if (!isAdmin || !db) return;
-
-        const q = query(collection(db, 'menu'));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const items = [];
-            querySnapshot.forEach((doc) => {
-                items.push({ id: doc.id, name: doc.data().name, price: doc.data().price });
-            });
-            setMenuItems(items);
-            if (items.length > 0) {
-                setSelectedItem(items[0].id);
-            }
-        }, (error) => {
-            console.error("Error al cargar el menú para el Admin:", error);
-            setAdminMessage("Error al cargar lista del menú. Revise la conexión a Firestore.");
-        });
-
-        return () => unsubscribe();
-    }, [isAdmin]);
-
-    const handleLogin = async () => {
-        setMessage('');
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-        } catch (error) {
-            let errorMessage = "Error al iniciar sesión. Inténtalo de nuevo.";
-            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-                 errorMessage = "Correo o contraseña incorrectos.";
-            }
-            setMessage(errorMessage);
+            };
+            reader.readAsDataURL(file);
         }
     };
 
-    const handleLogout = () => {
-        signOut(auth);
-    };
-
-    // FUNCIÓN MODIFICADA: Actualizar precio directamente en Firestore
-    const updateSandwichPrice = async () => {
-        const itemId = selectedItem;
-        const priceInput = document.getElementById('sandwich-price').value;
-        const newPrice = Number(priceInput);
-
-        if (!user || !itemId || priceInput === "" || isNaN(newPrice) || newPrice <= 0) {
-             setAdminMessage("Por favor, selecciona un producto e introduce un precio numérico válido y positivo.");
-             return;
-        }
-        
-        setAdminMessage('Actualizando...');
-        
-        try {
-            const itemRef = doc(db, 'menu', itemId);
-            await updateDoc(itemRef, {
-                price: newPrice
-            });
-            
-            setAdminMessage(`Éxito: Precio actualizado correctamente`);
-            document.getElementById('sandwich-price').value = ''; 
-        } catch (error) {
-            console.error("Error al actualizar precio:", error);
-            setAdminMessage(`Error: ${error.message}`);
-        }
-    };
-
-    // FUNCIÓN MODIFICADA: Agregar producto directamente en Firestore
-    const addNewProduct = async () => {
-        const name = newProductName.trim();
-        const price = Number(newProductPrice);
-
-        if (!user || !name || newProductPrice === "" || isNaN(price) || price <= 0) {
-            setAddProductMessage("Por favor, introduce un nombre válido y un precio numérico positivo.");
+    const addNewProduct = () => {
+        if (!newProduct.name || !newProduct.price) {
+            setAddProductMessage("Por favor completa nombre y precio");
             return;
         }
 
-        setAddProductMessage('Agregando producto...');
+        const product = {
+            id: Date.now().toString(),
+            ...newProduct,
+            price: Number(newProduct.price),
+            discount: Number(newProduct.discount)
+        };
 
-        try {
-            await addDoc(collection(db, 'menu'), {
-                name: name,
-                price: price
-            });
-            
-            setAddProductMessage(`Éxito: Producto agregado correctamente`);
-            setNewProductName('');
-            setNewProductPrice('');
-        } catch (error) {
-            console.error("Error al agregar producto:", error);
-            setAddProductMessage(`Error: ${error.message}`);
+        setMenuItems([...menuItems, product]);
+        setAddProductMessage('¡Producto agregado exitosamente!');
+        setNewProduct({
+            name: '',
+            price: '',
+            description: '',
+            imageUrl: '',
+            category: 'Hamburguesas',
+            discount: 0,
+            isAvailable: true,
+            hasOffer: false
+        });
+        setImagePreview('');
+        
+        setTimeout(() => setAddProductMessage(''), 3000);
+    };
+
+    const deleteProduct = (id) => {
+        if (window.confirm('¿Estás seguro de eliminar este producto?')) {
+            setMenuItems(menuItems.filter(item => item.id !== id));
         }
     };
 
-    // --- Renderizado ---
+    const startEditing = (item) => {
+        setEditingId(item.id);
+        setEditForm({...item});
+    };
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-yellow-700">
-                <div className="text-white text-xl font-semibold">Cargando datos de administrador...</div>
-            </div>
-        );
-    }
+    const cancelEditing = () => {
+        setEditingId(null);
+        setEditForm({});
+    };
+
+    const saveEdit = () => {
+        setMenuItems(menuItems.map(item => 
+            item.id === editingId ? {...editForm, price: Number(editForm.price), discount: Number(editForm.discount)} : item
+        ));
+        setEditingId(null);
+        setEditForm({});
+    };
+
+    const toggleAvailability = (id) => {
+        setMenuItems(menuItems.map(item => 
+            item.id === id ? {...item, isAvailable: !item.isAvailable} : item
+        ));
+    };
+
+    const calculateFinalPrice = (price, discount) => {
+        return discount > 0 ? price - (price * discount / 100) : price;
+    };
+
+    const handleLogout = () => {
+        setUser(null);
+        setIsAdmin(false);
+    };
 
     if (!user || !isAdmin) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-yellow-700 p-6">
-                <div className="bg-white p-8 sm:p-12 rounded-3xl shadow-2xl w-full max-w-md transform transition-all duration-500 ease-in-out">
-                    
-                    <h2 className="text-3xl font-extrabold text-yellow-900 mb-6 text-center select-none">
-                        Acceso de Administrador
+            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-yellow-600 to-orange-700 p-6">
+                <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md">
+                    <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
+                        🔐 Admin Login
                     </h2>
-
-                    <div className="space-y-4">
-                        <input 
-                            type="email" 
-                            value={email} 
-                            onChange={(e) => setEmail(e.target.value)} 
-                            placeholder="Correo Electrónico"
-                            className="w-full px-5 py-3 border border-yellow-300 rounded-xl focus:ring-4 focus:ring-yellow-500 focus:border-yellow-500 transition duration-150"
-                            aria-label="Correo Electrónico"
-                        />
-                        <input 
-                            type="password" 
-                            value={password} 
-                            onChange={(e) => setPassword(e.target.value)} 
-                            placeholder="Contraseña"
-                            className="w-full px-5 py-3 border border-yellow-300 rounded-xl focus:ring-4 focus:ring-yellow-500 focus:border-yellow-500 transition duration-150"
-                            aria-label="Contraseña"
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleLogin();
-                            }}
-                        />
-                        
-                        <button 
-                            onClick={handleLogin}
-                            type="button"
-                            className="w-full bg-yellow-500 hover:bg-yellow-600 text-yellow-900 font-bold uppercase rounded-xl py-3 shadow-lg transition-transform transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-yellow-300 select-none"
-                        >
-                            Ingresar
-                        </button>
-                    </div>
-
-                    {message && (
-                        <p className={`mt-4 text-center font-semibold rounded-lg p-3 ${message.includes('Error') || message.includes('denegado') ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                            {message}
-                        </p>
-                    )}
+                    <input 
+                        type="email" 
+                        value={email} 
+                        onChange={(e) => setEmail(e.target.value)} 
+                        placeholder="Email"
+                        className="w-full px-4 py-3 border rounded-xl mb-4 focus:ring-2 focus:ring-yellow-500"
+                    />
+                    <input 
+                        type="password" 
+                        value={password} 
+                        onChange={(e) => setPassword(e.target.value)} 
+                        placeholder="Password"
+                        className="w-full px-4 py-3 border rounded-xl mb-4 focus:ring-2 focus:ring-yellow-500"
+                    />
+                    <button 
+                        onClick={() => {setUser({uid: 'admin'}); setIsAdmin(true);}}
+                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 rounded-xl"
+                    >
+                        Ingresar
+                    </button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-yellow-700 p-8 sm:p-12">
-            <div className="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-2xl">
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-4xl font-extrabold text-yellow-900">Panel de Administración</h1>
-                    <button 
-                        onClick={handleLogout}
-                        className="bg-red-500 hover:bg-red-600 text-white font-semibold rounded-full py-2 px-6 shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-300"
-                    >
-                        Cerrar Sesión
-                    </button>
+        <div className="min-h-screen bg-gradient-to-br from-yellow-600 to-orange-700 p-4 sm:p-8">
+            <div className="max-w-7xl mx-auto">
+                {/* Header */}
+                <div className="bg-white rounded-3xl shadow-2xl p-6 mb-6">
+                    <div className="flex justify-between items-center">
+                        <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">🍔 Panel Admin</h1>
+                        <button 
+                            onClick={handleLogout}
+                            className="bg-red-500 hover:bg-red-600 text-white font-semibold rounded-full py-2 px-6 shadow-lg transition-all"
+                        >
+                            Cerrar Sesión
+                        </button>
+                    </div>
                 </div>
-                
-                <p className="text-gray-700 mb-10">Bienvenido, Administrador. Aquí puedes gestionar el menú.</p>
-                
-                {/* SECCIÓN: Agregar Producto */}
-                <section className="bg-green-100 p-6 rounded-2xl shadow-inner mb-8">
-                    <h3 className="text-2xl font-bold text-green-800 mb-4">Agregar Nuevo Producto</h3>
-                    <div className="space-y-4 md:space-y-0 md:flex md:gap-4 items-end">
-                        <div className="flex-1">
-                            <label htmlFor="new-product-name" className="block text-sm font-medium text-gray-700 mb-1">Nombre del Producto</label>
-                            <input 
-                                type="text" 
-                                id="new-product-name"
-                                value={newProductName}
-                                onChange={(e) => setNewProductName(e.target.value)}
-                                placeholder="Ej: Hamburguesa Clásica"
-                                className="w-full px-4 py-2 border border-green-300 rounded-xl focus:ring-2 focus:ring-green-500"
-                            />
-                        </div>
-                        <div className="flex-1">
-                            <label htmlFor="new-product-price" className="block text-sm font-medium text-gray-700 mb-1">Precio ($)</label>
-                            <input 
-                                type="number" 
-                                id="new-product-price"
-                                value={newProductPrice}
-                                onChange={(e) => setNewProductPrice(e.target.value)}
-                                placeholder="Ej: 3000"
-                                className="w-full px-4 py-2 border border-green-300 rounded-xl focus:ring-2 focus:ring-green-500"
-                            />
-                        </div>
-                        <button 
-                            onClick={addNewProduct}
-                            className="w-full md:w-auto bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl py-2 px-6 shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300"
-                        >
-                            Agregar Producto
-                        </button>
-                    </div>
-                    {addProductMessage && (
-                        <p className={`mt-4 font-semibold ${addProductMessage.includes('Éxito') ? 'text-green-600' : 'text-red-600'}`}>
-                            {addProductMessage}
-                        </p>
-                    )}
-                </section>
 
-                {/* Sección: Actualizar Precio */}
-                <section className="bg-yellow-100 p-6 rounded-2xl shadow-inner">
-                    <h3 className="text-2xl font-bold text-yellow-800 mb-4">Actualizar Precio de Producto</h3>
-                    <div className="space-y-4 md:space-y-0 md:flex md:gap-4 items-end">
-                        <div className="flex-1">
-                            <label htmlFor="sandwich-select" className="block text-sm font-medium text-gray-700 mb-1">Producto a Actualizar</label>
-                            <select 
-                                id="sandwich-select"
-                                value={selectedItem}
-                                onChange={(e) => setSelectedItem(e.target.value)}
-                                className="w-full px-4 py-2 border border-yellow-300 rounded-xl focus:ring-2 focus:ring-yellow-500 bg-white"
-                            >
-                                {menuItems.length === 0 && <option value="" disabled>Cargando productos...</option>}
-                                {menuItems.map(item => (
-                                    <option key={item.id} value={item.id}>
-                                        {item.name} (${item.price})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="flex-1">
-                            <label htmlFor="sandwich-price" className="block text-sm font-medium text-gray-700 mb-1">Nuevo Precio ($)</label>
+                {/* Agregar Producto */}
+                <div className="bg-white rounded-3xl shadow-2xl p-6 mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <Plus className="w-6 h-6" /> Agregar Nuevo Producto
+                    </h2>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <input 
+                            type="text" 
+                            placeholder="Nombre del producto"
+                            value={newProduct.name}
+                            onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                            className="px-4 py-2 border rounded-xl focus:ring-2 focus:ring-yellow-500"
+                        />
+                        
+                        <input 
+                            type="number" 
+                            placeholder="Precio"
+                            value={newProduct.price}
+                            onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
+                            className="px-4 py-2 border rounded-xl focus:ring-2 focus:ring-yellow-500"
+                        />
+                        
+                        <select 
+                            value={newProduct.category}
+                            onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
+                            className="px-4 py-2 border rounded-xl focus:ring-2 focus:ring-yellow-500"
+                        >
+                            {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </select>
+                        
+                        <input 
+                            type="number" 
+                            placeholder="Descuento (%)"
+                            value={newProduct.discount}
+                            onChange={(e) => setNewProduct({...newProduct, discount: e.target.value})}
+                            className="px-4 py-2 border rounded-xl focus:ring-2 focus:ring-yellow-500"
+                        />
+                        
+                        <div className="flex items-center gap-2">
                             <input 
-                                type="number" 
-                                id="sandwich-price" 
-                                placeholder="Ej: 2500"
-                                className="w-full px-4 py-2 border border-yellow-300 rounded-xl focus:ring-2 focus:ring-yellow-500"
+                                type="checkbox"
+                                checked={newProduct.hasOffer}
+                                onChange={(e) => setNewProduct({...newProduct, hasOffer: e.target.checked})}
+                                className="w-5 h-5"
+                            />
+                            <label className="text-sm font-medium">Marcar como Oferta</label>
+                        </div>
+                        
+                        <div className="col-span-full">
+                            <textarea 
+                                placeholder="Descripción del producto"
+                                value={newProduct.description}
+                                onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
+                                className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-yellow-500"
+                                rows="2"
                             />
                         </div>
-                        <button 
-                            onClick={updateSandwichPrice}
-                            disabled={!selectedItem || menuItems.length === 0}
-                            className={`w-full md:w-auto font-semibold rounded-xl py-2 px-6 shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-yellow-300 
-                                ${!selectedItem ? 'bg-gray-400 text-gray-700 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600 text-yellow-900'}
-                            `}
-                        >
-                            Actualizar Precio
-                        </button>
+                        
+                        <div className="col-span-full">
+                            <label className="block text-sm font-medium mb-2">Imagen del Producto</label>
+                            <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={(e) => handleImageUpload(e, false)}
+                                className="w-full px-4 py-2 border rounded-xl"
+                            />
+                            {imagePreview && (
+                                <img src={imagePreview} alt="Preview" className="mt-2 w-32 h-32 object-cover rounded-xl" />
+                            )}
+                        </div>
                     </div>
-                    {adminMessage && (
-                        <p className={`mt-4 font-semibold ${adminMessage.includes('Éxito') ? 'text-green-600' : 'text-red-600'}`}>
-                            {adminMessage}
-                        </p>
+                    
+                    <button 
+                        onClick={addNewProduct}
+                        className="mt-4 w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all"
+                    >
+                        ✨ Agregar Producto
+                    </button>
+                    
+                    {addProductMessage && (
+                        <p className="mt-4 text-center font-semibold text-green-600">{addProductMessage}</p>
                     )}
-                </section>
+                </div>
+
+                {/* Lista de Productos */}
+                <div className="bg-white rounded-3xl shadow-2xl p-6">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4">📋 Productos del Menú</h2>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {menuItems.map(item => (
+                            <div key={item.id} className={`border rounded-2xl overflow-hidden shadow-lg transition-all ${!item.isAvailable ? 'opacity-60' : ''}`}>
+                                {editingId === item.id ? (
+                                    // Modo Edición
+                                    <div className="p-4 bg-yellow-50">
+                                        <input 
+                                            type="text" 
+                                            value={editForm.name}
+                                            onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                                            className="w-full px-3 py-2 border rounded-lg mb-2"
+                                        />
+                                        <input 
+                                            type="number" 
+                                            value={editForm.price}
+                                            onChange={(e) => setEditForm({...editForm, price: e.target.value})}
+                                            className="w-full px-3 py-2 border rounded-lg mb-2"
+                                        />
+                                        <select 
+                                            value={editForm.category}
+                                            onChange={(e) => setEditForm({...editForm, category: e.target.value})}
+                                            className="w-full px-3 py-2 border rounded-lg mb-2"
+                                        >
+                                            {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                        </select>
+                                        <input 
+                                            type="number" 
+                                            placeholder="Descuento %"
+                                            value={editForm.discount}
+                                            onChange={(e) => setEditForm({...editForm, discount: e.target.value})}
+                                            className="w-full px-3 py-2 border rounded-lg mb-2"
+                                        />
+                                        <textarea 
+                                            value={editForm.description}
+                                            onChange={(e) => setEditForm({...editForm, description: e.target.value})}
+                                            className="w-full px-3 py-2 border rounded-lg mb-2"
+                                            rows="2"
+                                        />
+                                        <input 
+                                            type="file" 
+                                            accept="image/*"
+                                            onChange={(e) => handleImageUpload(e, true)}
+                                            className="w-full px-3 py-2 border rounded-lg mb-2 text-sm"
+                                        />
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <input 
+                                                type="checkbox"
+                                                checked={editForm.hasOffer}
+                                                onChange={(e) => setEditForm({...editForm, hasOffer: e.target.checked})}
+                                            />
+                                            <label className="text-sm">Oferta Especial</label>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={saveEdit} className="flex-1 bg-green-500 text-white py-2 rounded-lg flex items-center justify-center gap-1">
+                                                <Save className="w-4 h-4" /> Guardar
+                                            </button>
+                                            <button onClick={cancelEditing} className="flex-1 bg-gray-500 text-white py-2 rounded-lg flex items-center justify-center gap-1">
+                                                <X className="w-4 h-4" /> Cancelar
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    // Modo Vista
+                                    <>
+                                        <div className="relative">
+                                            {item.imageUrl && (
+                                                <img src={item.imageUrl} alt={item.name} className="w-full h-48 object-cover" />
+                                            )}
+                                            {item.hasOffer && (
+                                                <div className="absolute top-2 right-2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">
+                                                    ¡OFERTA!
+                                                </div>
+                                            )}
+                                            {!item.isAvailable && (
+                                                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                                                    <span className="text-white font-bold text-lg">NO DISPONIBLE</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="p-4">
+                                            <div className="flex items-start justify-between mb-2">
+                                                <h3 className="font-bold text-lg">{item.name}</h3>
+                                                <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-lg text-xs">{item.category}</span>
+                                            </div>
+                                            
+                                            <p className="text-gray-600 text-sm mb-3">{item.description}</p>
+                                            
+                                            <div className="flex items-center gap-2 mb-3">
+                                                {item.discount > 0 ? (
+                                                    <>
+                                                        <span className="text-gray-400 line-through">${item.price}</span>
+                                                        <span className="text-green-600 font-bold text-xl">${calculateFinalPrice(item.price, item.discount)}</span>
+                                                        <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs">-{item.discount}%</span>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-gray-800 font-bold text-xl">${item.price}</span>
+                                                )}
+                                            </div>
+                                            
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    onClick={() => toggleAvailability(item.id)}
+                                                    className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1 ${item.isAvailable ? 'bg-yellow-500 text-white' : 'bg-gray-300'}`}
+                                                >
+                                                    {item.isAvailable ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                                    {item.isAvailable ? 'Visible' : 'Oculto'}
+                                                </button>
+                                                <button 
+                                                    onClick={() => startEditing(item)}
+                                                    className="flex-1 bg-blue-500 text-white py-2 rounded-lg flex items-center justify-center gap-1"
+                                                >
+                                                    <Edit className="w-4 h-4" /> Editar
+                                                </button>
+                                                <button 
+                                                    onClick={() => deleteProduct(item.id)}
+                                                    className="bg-red-500 text-white px-4 py-2 rounded-lg"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
         </div>
     );
