@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase.js';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'; 
-import { collection, query, onSnapshot } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, addDoc } from 'firebase/firestore';
 
 function AdminPanel() {
     const [user, setUser] = useState(null);
@@ -90,6 +90,7 @@ function AdminPanel() {
         signOut(auth);
     };
 
+    // FUNCIÓN MODIFICADA: Actualizar precio directamente en Firestore
     const updateSandwichPrice = async () => {
         const itemId = selectedItem;
         const priceInput = document.getElementById('sandwich-price').value;
@@ -103,38 +104,20 @@ function AdminPanel() {
         setAdminMessage('Actualizando...');
         
         try {
-            const idToken = await user.getIdToken();
-            
-            const response = await fetch('/.netlify/functions/admin_function', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}`
-                },
-                body: JSON.stringify({
-                    action: 'update_price',
-                    itemId: itemId, 
-                    newPrice: newPrice 
-                })
+            const itemRef = doc(db, 'menu', itemId);
+            await updateDoc(itemRef, {
+                price: newPrice
             });
-
-            const data = await response.json();
-            if (response.ok) {
-                setAdminMessage(`Éxito: ${data.message}`);
-                document.getElementById('sandwich-price').value = ''; 
-            } else {
-                setAdminMessage(`Error: ${data.error}`);
-                if (response.status === 403 || response.status === 401) {
-                    signOut(auth);
-                }
-            }
-
+            
+            setAdminMessage(`Éxito: Precio actualizado correctamente`);
+            document.getElementById('sandwich-price').value = ''; 
         } catch (error) {
-            setAdminMessage(`Error de conexión al servidor: ${error.message}`);
+            console.error("Error al actualizar precio:", error);
+            setAdminMessage(`Error: ${error.message}`);
         }
     };
 
-    // NUEVA FUNCIÓN: Agregar producto
+    // FUNCIÓN MODIFICADA: Agregar producto directamente en Firestore
     const addNewProduct = async () => {
         const name = newProductName.trim();
         const price = Number(newProductPrice);
@@ -147,35 +130,17 @@ function AdminPanel() {
         setAddProductMessage('Agregando producto...');
 
         try {
-            const idToken = await user.getIdToken();
-
-            const response = await fetch('/.netlify/functions/admin_function', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}`
-                },
-                body: JSON.stringify({
-                    action: 'add_product',
-                    name: name,
-                    price: price
-                })
+            await addDoc(collection(db, 'menu'), {
+                name: name,
+                price: price
             });
-
-            const data = await response.json();
-            if (response.ok) {
-                setAddProductMessage(`Éxito: ${data.message}`);
-                setNewProductName('');
-                setNewProductPrice('');
-            } else {
-                setAddProductMessage(`Error: ${data.error}`);
-                if (response.status === 403 || response.status === 401) {
-                    signOut(auth);
-                }
-            }
-
+            
+            setAddProductMessage(`Éxito: Producto agregado correctamente`);
+            setNewProductName('');
+            setNewProductPrice('');
         } catch (error) {
-            setAddProductMessage(`Error de conexión al servidor: ${error.message}`);
+            console.error("Error al agregar producto:", error);
+            setAddProductMessage(`Error: ${error.message}`);
         }
     };
 
@@ -253,7 +218,7 @@ function AdminPanel() {
                 
                 <p className="text-gray-700 mb-10">Bienvenido, Administrador. Aquí puedes gestionar el menú.</p>
                 
-                {/* NUEVA SECCIÓN: Agregar Producto */}
+                {/* SECCIÓN: Agregar Producto */}
                 <section className="bg-green-100 p-6 rounded-2xl shadow-inner mb-8">
                     <h3 className="text-2xl font-bold text-green-800 mb-4">Agregar Nuevo Producto</h3>
                     <div className="space-y-4 md:space-y-0 md:flex md:gap-4 items-end">
@@ -293,7 +258,7 @@ function AdminPanel() {
                     )}
                 </section>
 
-                {/* Sección original: Actualizar Precio */}
+                {/* Sección: Actualizar Precio */}
                 <section className="bg-yellow-100 p-6 rounded-2xl shadow-inner">
                     <h3 className="text-2xl font-bold text-yellow-800 mb-4">Actualizar Precio de Producto</h3>
                     <div className="space-y-4 md:space-y-0 md:flex md:gap-4 items-end">
