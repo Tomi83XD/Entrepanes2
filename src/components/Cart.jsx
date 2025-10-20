@@ -1,16 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-export default function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, onDecreaseQty, onConfirmSale }) { // Agrega onConfirmSale
-  const [step, setStep] = useState('view');
-  const [paymentMethod, setPaymentMethod] = useState(null);
-
+export default function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, onDecreaseQty, onConfirmSale }) {
   const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const discountedTotal = paymentMethod === 'transferencia' ? (total * 0.9).toFixed(2) : total.toFixed(2);
   const alias = "tomas.hornalla";
   const titular = "Tomas Martin Orellana Jimenez";
-
-  // Depuración: Agrega esto para ver si se ejecuta
-  console.log('Cart renderizado. Step:', step, 'Items:', cartItems.length);
+  const whatsappNumber = "5493541682299";
 
   const copyAlias = async () => {
     try {
@@ -22,41 +16,13 @@ export default function Cart({ cartItems, onClose, onRemoveItem, onClearCart, on
     }
   };
 
-  const proceedToPayment = () => setStep('payment');
-  const resetCartView = () => {
-    setStep('view');
-    setPaymentMethod(null);
-  };
-
-  const generateWhatsAppMessage = () => {
-    let message = "¡Hola! Quisiera hacer el siguiente pedido:\n\n";
-    cartItems.forEach(item => {
-      message += `${item.quantity} x ${item.name} - $${(item.price * item.quantity).toFixed(2)}\n`;
-    });
-    message += `\nTotal: $${total.toFixed(2)}`;
-
-    if (paymentMethod === 'transferencia') {
-      message += `\n*Total con 10% de descuento (transferencia): $${discountedTotal}*`;
-    }
-    
-    if (paymentMethod === 'efectivo') {
-        message += `\n*Pago en efectivo al retirar en caja*`;
-    } else if (paymentMethod === 'transferencia') {
-        message += `\n*Medio de pago: Transferencia. Alias: ${alias}*`;
-    }
-
-    return encodeURIComponent(message);
-  };
-
-  const sendWhatsAppOrder = async () => { // Hazlo async
+  const finalizePurchase = async () => {
     if (cartItems.length === 0) return;
-    
-    const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    
-    // Confirma la venta (registra y disminuye stock)
+
+    // Registrar venta y actualizar stock
     await onConfirmSale(cartItems, total);
-    
-    // Genera y abre WhatsApp
+
+    // Generar mensaje de WhatsApp
     let message = "🛒 *Nuevo Pedido - Entrepanes VCP*\n\n";
     cartItems.forEach(item => {
       message += `• ${item.name}\n`;
@@ -67,234 +33,60 @@ export default function Cart({ cartItems, onClose, onRemoveItem, onClearCart, on
     message += `💰 *Total: $${total.toFixed(0)}*\n\n`;
     message += "📍 Dirección de entrega:\n";
     message += "🕐 Horario preferido:\n";
-    message += "💳 Forma de pago:\n";
-    
+    message += "💳 Forma de pago (Efectivo o Transferencia):\n";
+    message += `*Alias para transferencia: ${alias}*\n`;
+    message += `*Titular: ${titular}*\n`;
+
     const encodedMessage = encodeURIComponent(message);
-    const whatsappURL = `https://wa.me/5493541682299?text=${encodedMessage}`;
+    const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
     window.open(whatsappURL, '_blank');
   };
 
   return (
     <>
-      <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <aside
-        className="fixed top-0 right-0 w-full max-w-md h-full bg-yellow-900 text-yellow-200 p-6 shadow-lg z-50 flex flex-col overflow-auto rounded-l-3xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cart-title"
-      >
-        <h2 id="cart-title" className="text-3xl font-extrabold mb-6 select-none">
-          Carrito de Compras
-        </h2>
-        <button
-          onClick={onClose}
-          aria-label="Cerrar carrito"
-          className="self-end text-yellow-400 hover:text-yellow-300 mb-6 font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded"
-        >
-          ✕
-        </button>
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onClose} aria-hidden="true" />
+      <aside className="fixed top-0 right-0 w-full max-w-md h-full bg-yellow-900 text-yellow-200 p-6 shadow-lg z-50 flex flex-col overflow-auto rounded-l-3xl" role="dialog" aria-modal="true" aria-labelledby="cart-title">
+        <h2 id="cart-title" className="text-3xl font-extrabold mb-6 select-none">🛒 Tu Carrito</h2>
+        <button onClick={onClose} aria-label="Cerrar carrito" className="self-end text-yellow-400 hover:text-yellow-300 mb-6 font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded">✕</button>
 
-        {/* Nueva sección: Alias y Titular siempre visibles en el carrito (fuera de condicionales) */}
+        {/* Info de pago siempre visible */}
         <div className="bg-yellow-800 bg-opacity-40 p-4 rounded-xl shadow-inner mb-4 select-none">
-          <h4 className="font-semibold text-lg mb-2 text-yellow-400">Información de Pago (Transferencia):</h4>
-          <p className="text-yellow-300">
-            Alias: 
-            <span className="font-mono text-yellow-500 font-bold ml-2">
-              {alias}
-            </span>
-            <button
-              onClick={copyAlias}
-              className="ml-2 text-yellow-900 bg-yellow-400 hover:bg-yellow-300 px-2 py-1 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              aria-label="Copiar alias"
-            >
-              Copiar Alias
-            </button>
+          <h4 className="font-semibold text-lg mb-2 text-yellow-400">Información de Pago:</h4>
+          <p className="text-yellow-300">Alias: <span className="font-mono text-yellow-500 font-bold ml-2">{alias}</span>
+            <button onClick={copyAlias} className="ml-2 text-yellow-900 bg-yellow-400 hover:bg-yellow-300 px-2 py-1 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500" aria-label="Copiar alias">Copiar</button>
           </p>
-          <p className="text-yellow-300 mt-1">
-            Titular: {titular}
-          </p>
-          <p className="text-yellow-300 text-sm mt-2">
-            *Pago con transferencia: 10% de descuento. Manda comprobante por WhatsApp.*
-          </p>
+          <p className="text-yellow-300 mt-1">Titular: {titular}</p>
+          <p className="text-yellow-300 text-sm mt-2">*Pago con transferencia: 10% descuento. Manda comprobante por WhatsApp.*</p>
+          <p className="text-yellow-300 text-sm mt-2">WhatsApp: <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="text-yellow-500 underline">+{whatsappNumber}</a></p>
         </div>
 
         {cartItems.length === 0 ? (
           <p className="text-yellow-400 select-none">Tu carrito está vacío</p>
         ) : (
           <>
-            {step === 'view' && (
-              <>
-                <ul
-                  className="flex-grow divide-y divide-yellow-700 overflow-auto mb-4"
-                  aria-label="Lista de productos en carrito"
-                >
-                  {cartItems.map(({ id, name, price, quantity, image }) => (
-                    <li key={id} className="py-4 flex gap-4 items-start" role="listitem">
-                      <img
-                        src={image}
-                        alt={name}
-                        className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
-                        loading="lazy"
-                      />
-                      <div className="flex flex-col flex-grow">
-                        <h3 className="font-semibold select-none">{name}</h3>
-                        <p className="select-none">{quantity} x ${price}</p>
-                        <p className="font-bold mt-1 select-none">Subtotal: ${(price * quantity).toFixed(2)}</p>
-                        
-                        <div className="flex items-center gap-2 mt-2">
-                          <button
-                            onClick={() => onDecreaseQty(id)}
-                            aria-label={`Disminuir cantidad de ${name}`}
-                            className="bg-yellow-700 hover:bg-yellow-600 rounded px-2 select-none focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                          >
-                            -
-                          </button>
-                          <span className="font-semibold select-none">{quantity}</span>
-                          <button
-                            onClick={() => onIncreaseQty(id)}
-                            aria-label={`Incrementar cantidad de ${name}`}
-                            className="bg-yellow-700 hover:bg-yellow-600 rounded px-2 select-none focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <button
-                        onClick={() => onRemoveItem(id)}
-                        aria-label={`Eliminar ${name} del carrito`}
-                        className="text-red-500 hover:text-red-400 font-bold self-end select-none ml-auto"
-                      >
-                        ✕
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                
-                <div className="border-t border-yellow-700 pt-4 text-right font-bold text-yellow-300 text-xl select-none">
-                  Total: ${total.toFixed(2)}
-                </div>
-                <div className="mt-6 flex gap-4">
-                  <button
-                    onClick={proceedToPayment}
-                    className="flex-grow bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-semibold uppercase py-3 rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-yellow-300 select-none"
-                  >
-                    Pagar
-                  </button>
-                  <button
-                    onClick={onClearCart}
-                    className="flex-grow bg-red-600 hover:bg-red-500 text-yellow-100 font-semibold uppercase py-3 rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-400 select-none"
-                  >
-                    Vaciar carrito
-                  </button>
-                </div>
-              </>
-            )}
-
-            {step === 'payment' && (
-              <div className="flex flex-col gap-6">
-                <h3 className="text-2xl font-semibold select-none">Seleccione método de pago</h3>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => setPaymentMethod('efectivo')}
-                    className={`flex-grow py-3 rounded-lg font-semibold uppercase shadow transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 select-none ${
-                      paymentMethod === 'efectivo'
-                        ? 'bg-yellow-500 text-yellow-900 ring-4 ring-yellow-500'
-                        : 'bg-yellow-300 text-yellow-900 hover:bg-yellow-400'
-                    }`}
-                  >
-                    Efectivo (pago en caja)
-                  </button>
-                  <button
-                    onClick={() => setPaymentMethod('transferencia')}
-                    className={`flex-grow py-3 rounded-lg font-semibold uppercase shadow transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 select-none ${
-                      paymentMethod === 'transferencia'
-                        ? 'bg-green-600 text-yellow-100 ring-4 ring-green-600'
-                        : 'bg-green-400 text-yellow-100 hover:bg-green-500'
-                    }`}
-                  >
-                    Transferencia (10% descuento)
-                  </button>
-                </div>
-
-                {paymentMethod && (
-                  <>
-                    <article className="mt-6 bg-yellow-800 bg-opacity-40 p-4 rounded-xl shadow-inner select-none">
-                      <h4 className="font-semibold text-lg mb-2 text-yellow-400">Resumen de su pedido:</h4>
-                      <ul className="list-disc list-inside max-h-48 overflow-y-auto text-yellow-200">
-                        {cartItems.map(({ id, name, quantity, price }) => (
-                          <li key={id}>
-                            {quantity} x {name} - ${ (price * quantity).toFixed(2) }
-                          </li>
-                        ))}
-                      </ul>
-                      <p className="mt-4 font-bold text-lg text-yellow-300">
-                        Total a pagar: ${discountedTotal}
-                      </p>
-                    </article>
-
-                    {paymentMethod === 'transferencia' ? (
-                      <p className="mt-2 text-yellow-300 select-none">
-                        Para realizar la transferencia, podés usar las siguientes opciones:<br />
-                        Alias: 
-                        <span className="font-mono text-yellow-500 font-bold ml-2">
-                          {alias}
-                        </span>
-                        <button
-                          onClick={copyAlias}
-                          className="ml-2 text-yellow-900 bg-yellow-400 hover:bg-yellow-300 px-2 py-1 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                          aria-label="Copiar alias"
-                        >
-                          Copiar Alias
-                        </button>
-                        <br />
-                        Titular: {titular}<br />
-                        Manda esta captura y el comprobante a el siguiente WhatsApp!!!
-                      </p>
-                    ) : (
-                      <p className="mt-2 text-yellow-300 select-none">
-                        El pago será realizado en efectivo al momento de la entrega en caja.<br />
-                        PAGO CON TRANSFERENCIA %10 DESCUENTO!!!
-                      </p>
-                    )}
-
-                    {paymentMethod && (
-                      <a
-                        href={`https://wa.me/5493541682299?text=${generateWhatsAppMessage()}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-6 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-400 text-yellow-900 font-semibold rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300 select-none"
-                        aria-label="Contactar por WhatsApp"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" className="w-6 h-6">
-                          <path d="M20.52 3.48A11.945 11.945 0 0012 0C5.373 0 0 5.373 0 12a11.936 11.936 0 001.664 6.004L0 24l6.132-1.612A11.92 11.92 0 0012 24c6.627 0 12-5.373 12-12 0-3.193-1.255-6.192-3.48-8.52zM12 21.843a9.792 9.792 0 01-4.97-1.417l-.355-.209-3.64.956.969-3.58-.23-.37A9.82 9.82 0 012.165 12 9.828 9.828 0 0112 2.172a9.79 9.79 0 016.928 2.674 9.813 9.813 0 012.877 7.025c0 5.454-4.446 9.797-9.805 9.973zM17.53 14.02c-.256-.128-1.514-.746-1.75-.831-.236-.083-.41-.127-.584.127-.174.256-.673.83-.826 1-.15.172-.3.193-.556.065-.256-.128-1.078-.397-2.056-1.267-.76-.676-1.274-1.51-1.423-1.76-.15-.256-.016-.394.113-.522.116-.115.256-.3.387-.448.127-.15.17-.256.256-.427.086-.17.043-.317-.021-.445-.064-.128-.583-1.4-.8-1.916-.21-.5-.424-.432-.584-.44-.15-.006-.327-.008-.5-.008-.174 0-.455.065-.694.317-.237.256-.91.89-.91 2.173 0 1.284.934 2.527 1.065 2.702.13.174 1.838 2.88 4.462 4.037.624.27 1.11.43 1.489.55.625.192 1.195.165 1.647.1.503-.07 1.514-.62 1.727-1.22.213-.6.213-1.115.15-1.22-.064-.105-.236-.17-.492-.297z"/>
-                        </svg>
-                        Enviar Pedido por WhatsApp
-                      </a>
-                    )}
-
-                    <div className="mt-6 flex gap-4">
-                      <button
-                        onClick={resetCartView}
-                        className="flex-grow bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-semibold uppercase py-3 rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-yellow-300 select-none"
-                      >
-                        Volver al carrito
-                      </button>
-                      <button
-                        onClick={onClearCart}
-                        className="flex-grow bg-red-600 hover:bg-red-500 text-yellow-100 font-semibold uppercase py-3 rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-400 select-none"
-                      >
-                        Vaciar Carrito
-                      </button>
+            <ul className="flex-grow divide-y divide-yellow-700 overflow-auto mb-4" aria-label="Lista de productos en carrito">
+              {cartItems.map(({ id, name, price, quantity, image }) => (
+                <li key={id} className="py-4 flex gap-4 items-start" role="listitem">
+                  <img src={image} alt={name} className="w-20 h-20 rounded-xl object-cover flex-shrink-0" loading="lazy" />
+                  <div className="flex flex-col flex-grow">
+                    <h3 className="font-semibold select-none">{name}</h3>
+                    <p className="select-none">{quantity} x ${price}</p>
+                    <p className="font-bold mt-1 select-none">Subtotal: ${(price * quantity).toFixed(2)}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <button onClick={() => onDecreaseQty(id)} aria-label={`Disminuir cantidad de ${name}`} className="bg-yellow-700 hover:bg-yellow-600 rounded px-2 select-none focus:outline-none focus:ring-2 focus:ring-yellow-400">-</button>
+                      <span className="font-semibold select-none">{quantity}</span>
+                      <button onClick={() => onIncreaseQty(id)} aria-label={`Incrementar cantidad de ${name}`} className="bg-yellow-700 hover:bg-yellow-600 rounded px-2 select-none focus:outline-none focus:ring-2 focus:ring-yellow-400">+</button>
                     </div>
-                  </>
-                )}
-              </div>
-            )}
+                  </div>
+                  <button onClick={() => onRemoveItem(id)} aria-label={`Eliminar ${name} del carrito`} className="text-red-500 hover:text-red-400 font-bold self-end select-none ml-auto">✕</button>
+                </li>
+              ))}
+            </ul>
+            <div className="border-t border-yellow-700 pt-4 text-right font-bold text-yellow-300 text-xl select-none">Total: ${total.toFixed(2)}</div>
+            <div className="mt-6 flex gap-4">
+              <button onClick={finalizePurchase} className="flex-grow bg-green-500 hover:bg-green-400 text-yellow-900 font-semibold uppercase py-3 rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300 select-none">Finalizar Compra</button>
+              <button onClick={onClearCart} className="flex-grow bg-red-600 hover:bg-red-500 text-yellow-100 font-semibold uppercase py-3 rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-400 select-none">Vaciar Carrito</button>
+            </div>
           </>
         )}
       </aside>
