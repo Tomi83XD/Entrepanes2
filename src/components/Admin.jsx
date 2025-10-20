@@ -30,7 +30,10 @@ function AdminPanel() {
         category: 'miga',
         discount: 0,
         isAvailable: true,
-        featured: false // Cambiado de hasOffer a featured
+        featured: false, // Cambiado de hasOffer a featured
+        stock: 0,
+        limitedStock: false,
+        isNew: false
     });
     
     const [editingId, setEditingId] = useState(null);
@@ -89,7 +92,10 @@ function AdminPanel() {
                     category: docSnap.data().category || 'miga',
                     discount: docSnap.data().discount || 0,
                     isAvailable: docSnap.data().isAvailable !== false,
-                    featured: docSnap.data().featured || false
+                    featured: docSnap.data().featured || false,
+                    stock: docSnap.data().stock || 0,
+                    limitedStock: docSnap.data().limitedStock || false,
+                    isNew: docSnap.data().isNew || false
                 });
             });
             setMenuItems(items);
@@ -145,7 +151,10 @@ function AdminPanel() {
                 category: newProduct.category,
                 discount: Number(newProduct.discount),
                 isAvailable: newProduct.isAvailable,
-                featured: newProduct.featured
+                featured: newProduct.featured,
+                stock: Number(newProduct.stock),
+                limitedStock: newProduct.limitedStock,
+                isNew: newProduct.isNew
             });
 
             setAddProductMessage('¡Producto agregado exitosamente!');
@@ -157,7 +166,10 @@ function AdminPanel() {
                 category: 'miga',
                 discount: 0,
                 isAvailable: true,
-                featured: false
+                featured: false,
+                stock: 0,
+                limitedStock: false,
+                isNew: false
             });
             setImagePreview('');
             
@@ -200,7 +212,10 @@ function AdminPanel() {
                 category: editForm.category,
                 discount: Number(editForm.discount),
                 isAvailable: editForm.isAvailable,
-                featured: editForm.featured
+                featured: editForm.featured,
+                stock: Number(editForm.stock),
+                limitedStock: editForm.limitedStock,
+                isNew: editForm.isNew
             });
             setEditingId(null);
             setEditForm({});
@@ -357,6 +372,25 @@ function AdminPanel() {
                             className="px-4 py-2 border rounded-xl focus:ring-2 focus:ring-yellow-500"
                         />
                         
+                        <input 
+                            type="number" 
+                            placeholder="Stock"
+                            value={newProduct.stock}
+                            onChange={(e) => setNewProduct({...newProduct, stock: e.target.value})}
+                            className="px-4 py-2 border rounded-xl focus:ring-2 focus:ring-yellow-500"
+                        />
+                        
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="checkbox"
+                                checked={newProduct.limitedStock}
+                                onChange={(e) => setNewProduct({...newProduct, limitedStock: e.target.checked})}
+                                className="w-5 h-5"
+                                id="limited-stock-checkbox"
+                            />
+                            <label htmlFor="limited-stock-checkbox" className="text-sm font-medium">Stock Limitado</label>
+                        </div>
+                        
                         <div className="flex items-center gap-2">
                             <input 
                                 type="checkbox"
@@ -366,6 +400,17 @@ function AdminPanel() {
                                 id="featured-checkbox"
                             />
                             <label htmlFor="featured-checkbox" className="text-sm font-medium">⭐ Marcar como Destacado</label>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="checkbox"
+                                checked={newProduct.isNew}
+                                onChange={(e) => setNewProduct({...newProduct, isNew: e.target.checked})}
+                                className="w-5 h-5"
+                                id="is-new-checkbox"
+                            />
+                            <label htmlFor="is-new-checkbox" className="text-sm font-medium">🆕 Producto Nuevo</label>
                         </div>
                         
                         <div className="flex items-center gap-2">
@@ -429,7 +474,7 @@ function AdminPanel() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {menuItems.map(item => (
                                 <div key={item.id} className={`border rounded-2xl overflow-hidden shadow-lg transition-all ${!item.isAvailable ? 'opacity-60' : ''}`}>
-                                    {editingId === item.id ? (
+                                                                        {editingId === item.id ? (
                                         // Modo Edición
                                         <div className="p-4 bg-yellow-50">
                                             <input 
@@ -464,6 +509,45 @@ function AdminPanel() {
                                                 onChange={(e) => setEditForm({...editForm, discount: e.target.value})}
                                                 className="w-full px-3 py-2 border rounded-lg mb-2"
                                             />
+                                            <input 
+                                                type="number" 
+                                                placeholder="Stock"
+                                                value={editForm.stock}
+                                                onChange={(e) => setEditForm({...editForm, stock: e.target.value})}
+                                                className="w-full px-3 py-2 border rounded-lg mb-2"
+                                            />
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <input 
+                                                    type="checkbox"
+                                                    checked={editForm.limitedStock}
+                                                    onChange={(e) => setEditForm({...editForm, limitedStock: e.target.checked})}
+                                                />
+                                                <label className="text-sm">Stock Limitado</label>
+                                            </div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <input 
+                                                    type="checkbox"
+                                                    checked={editForm.featured}
+                                                    onChange={(e) => setEditForm({...editForm, featured: e.target.checked})}
+                                                />
+                                                <label className="text-sm">⭐ Producto Destacado</label>
+                                            </div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <input 
+                                                    type="checkbox"
+                                                    checked={editForm.isNew}
+                                                    onChange={(e) => setEditForm({...editForm, isNew: e.target.checked})}
+                                                />
+                                                <label className="text-sm">🆕 Producto Nuevo</label>
+                                            </div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <input 
+                                                    type="checkbox"
+                                                    checked={editForm.isAvailable}
+                                                    onChange={(e) => setEditForm({...editForm, isAvailable: e.target.checked})}
+                                                />
+                                                <label className="text-sm">Producto Disponible</label>
+                                            </div>
                                             <textarea 
                                                 value={editForm.description}
                                                 onChange={(e) => setEditForm({...editForm, description: e.target.value})}
@@ -480,14 +564,6 @@ function AdminPanel() {
                                             {editForm.image && (
                                                 <img src={editForm.image} alt="Preview" className="w-full h-32 object-cover rounded-lg mb-2" />
                                             )}
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <input 
-                                                    type="checkbox"
-                                                    checked={editForm.featured}
-                                                    onChange={(e) => setEditForm({...editForm, featured: e.target.checked})}
-                                                />
-                                                <label className="text-sm">⭐ Producto Destacado</label>
-                                            </div>
                                             <div className="flex gap-2">
                                                 <button onClick={saveEdit} className="flex-1 bg-green-500 text-white py-2 rounded-lg flex items-center justify-center gap-1">
                                                     <Save /> Guardar
@@ -548,6 +624,13 @@ function AdminPanel() {
                                                     ) : (
                                                         <span className="text-gray-800 font-bold text-xl">${item.price}</span>
                                                     )}
+                                                </div>
+                                                
+                                                <div className="mb-3">
+                                                    <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                                                        <span>Stock: {item.stock}</span>
+                                                        {item.limitedStock && <span className="text-orange-600">Limitado</span>}
+                                                    </div>
                                                 </div>
                                                 
                                                 <div className="flex gap-2 mb-2">
