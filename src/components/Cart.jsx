@@ -210,7 +210,7 @@ export default function Cart({ cartItems, onClose, onRemoveItem, onClearCart, on
 
                     {paymentMethod && (
                       <a
-                        href={`https://wa.me/3541682299?text=${generateWhatsAppMessage()}`}
+                        href={`https://wa.me/5493541682299?text=${generateWhatsAppMessage()}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-6 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-400 text-yellow-900 font-semibold rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300 select-none"

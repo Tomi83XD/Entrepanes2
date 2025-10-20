@@ -254,7 +254,7 @@ function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, on
     message += "💳 Forma de pago:\n";
     
     const encodedMessage = encodeURIComponent(message);
-    const whatsappURL = `https://wa.me/5493541234567?text=${encodedMessage}`;
+    const whatsappURL = `https://wa.me/5493541682299?text=${encodedMessage}`;
     window.open(whatsappURL, '_blank');
   };
 
