@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase.js';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'; 
-import { collection, query, onSnapshot, doc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, addDoc, deleteDoc, where, orderBy } from 'firebase/firestore';
 
 // Iconos simples con emojis
 const Trash2 = () => <span>🗑️</span>;
@@ -40,6 +40,10 @@ function AdminPanel() {
     const [editForm, setEditForm] = useState({});
     const [addProductMessage, setAddProductMessage] = useState('');
     const [imagePreview, setImagePreview] = useState('');
+    
+    // Nuevos estados para ventas del día
+    const [dailySales, setDailySales] = useState([]);
+    const [totalSalesToday, setTotalSalesToday] = useState(0);
     
     // Categorías que coinciden con tu Catalogo
     const categories = ['miga', 'pebete', 'bebidas', 'postres', 'otros'];
@@ -101,6 +105,33 @@ function AdminPanel() {
             setMenuItems(items);
         }, (error) => {
             console.error("Error al cargar el menú:", error);
+        });
+
+        return () => unsubscribe();
+    }, [isAdmin]);
+
+    // Hook 3: Carga ventas del día si es admin
+    useEffect(() => {
+        if (!isAdmin) return;
+
+        const today = new Date().toISOString().split('T')[0]; // Fecha actual en YYYY-MM-DD
+        const q = query(
+            collection(db, 'sales'),
+            where('date', '==', today),
+            orderBy('timestamp', 'desc')
+        );
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const sales = [];
+            let total = 0;
+            querySnapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                sales.push({ id: docSnap.id, ...data });
+                total += data.total;
+            });
+            setDailySales(sales);
+            setTotalSalesToday(total);
+        }, (error) => {
+            console.error("Error al cargar ventas del día:", error);
         });
 
         return () => unsubscribe();
@@ -423,8 +454,7 @@ function AdminPanel() {
                             />
                             <label htmlFor="available-checkbox" className="text-sm font-medium">Producto Disponible</label>
                         </div>
-                        
-                        <div className="col-span-full">
+                                                <div className="col-span-full">
                             <textarea 
                                 placeholder="Descripción del producto"
                                 value={newProduct.description}
@@ -463,7 +493,7 @@ function AdminPanel() {
                 </div>
 
                 {/* Lista de Productos */}
-                <div className="bg-white rounded-3xl shadow-2xl p-6">
+                <div className="bg-white rounded-3xl shadow-2xl p-6 mb-6">
                     <h2 className="text-2xl font-bold text-gray-800 mb-4">📋 Productos del Menú ({menuItems.length})</h2>
                     
                     {menuItems.length === 0 ? (
@@ -669,6 +699,41 @@ function AdminPanel() {
                                 </div>
                             ))}
                         </div>
+                    )}
+                </div>
+
+                {/* Ventas del Día */}
+                <div className="bg-white rounded-3xl shadow-2xl p-6">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4">📊 Ventas del Día ({dailySales.length} pedidos)</h2>
+                    
+                    {dailySales.length === 0 ? (
+                        <div className="text-center text-gray-500 py-10">
+                            No hay ventas registradas hoy. ¡Esperemos que llegue la primera! 🎉
+                        </div>
+                    ) : (
+                        <>
+                            <div className="mb-4 text-xl font-bold text-green-600">
+                                Total Vendido Hoy: ${totalSalesToday.toFixed(0)}
+                            </div>
+                            <div className="space-y-4">
+                                {dailySales.map(sale => (
+                                    <div key={sale.id} className="border rounded-xl p-4 bg-gray-50">
+                                        <div className="flex justify-between mb-2">
+                                            <span className="font-bold">Pedido ID: {sale.id}</span>
+                                            <span className="text-gray-600">{new Date(sale.timestamp.seconds * 1000).toLocaleTimeString()}</span>
+                                        </div>
+                                        <ul className="mb-2">
+                                            {sale.items.map((item, idx) => (
+                                                <li key={idx} className="text-sm">
+                                                    {item.quantity} x {item.name} - ${item.subtotal.toFixed(0)}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        <div className="font-bold text-right">Total: ${sale.total.toFixed(0)}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
                     )}
                 </div>
             </div>

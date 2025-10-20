@@ -9,9 +9,6 @@ export default function Cart({ cartItems, onClose, onRemoveItem, onClearCart, on
   const alias = "tomas.hornalla";
   const titular = "Tomas Martin Orellana Jimenez";
 
-  // Depuración: Agrega esto para ver si se ejecuta
-  console.log('Cart renderizado. Step:', step, 'Items:', cartItems.length);
-
   const copyAlias = async () => {
     try {
       await navigator.clipboard.writeText(alias);
@@ -98,30 +95,6 @@ export default function Cart({ cartItems, onClose, onRemoveItem, onClearCart, on
           ✕
         </button>
 
-        {/* Nueva sección: Alias y Titular siempre visibles en el carrito (fuera de condicionales) */}
-        <div className="bg-yellow-800 bg-opacity-40 p-4 rounded-xl shadow-inner mb-4 select-none">
-          <h4 className="font-semibold text-lg mb-2 text-yellow-400">Información de Pago (Transferencia):</h4>
-          <p className="text-yellow-300">
-            Alias: 
-            <span className="font-mono text-yellow-500 font-bold ml-2">
-              {alias}
-            </span>
-            <button
-              onClick={copyAlias}
-              className="ml-2 text-yellow-900 bg-yellow-400 hover:bg-yellow-300 px-2 py-1 rounded-md text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              aria-label="Copiar alias"
-            >
-              Copiar Alias
-            </button>
-          </p>
-          <p className="text-yellow-300 mt-1">
-            Titular: {titular}
-          </p>
-          <p className="text-yellow-300 text-sm mt-2">
-            *Pago con transferencia: 10% de descuento. Manda comprobante por WhatsApp.*
-          </p>
-        </div>
-
         {cartItems.length === 0 ? (
           <p className="text-yellow-400 select-none">Tu carrito está vacío</p>
         ) : (
@@ -174,7 +147,6 @@ export default function Cart({ cartItems, onClose, onRemoveItem, onClearCart, on
                     </li>
                   ))}
                 </ul>
-                
                 <div className="border-t border-yellow-700 pt-4 text-right font-bold text-yellow-300 text-xl select-none">
                   Total: ${total.toFixed(2)}
                 </div>
@@ -264,7 +236,7 @@ export default function Cart({ cartItems, onClose, onRemoveItem, onClearCart, on
 
                     {paymentMethod && (
                       <a
-                        href={`https://wa.me/5493541682299?text=${generateWhatsAppMessage()}`}
+                                                href={`https://wa.me/5493541682299?text=${generateWhatsAppMessage()}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-6 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-400 text-yellow-900 font-semibold rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300 select-none"
