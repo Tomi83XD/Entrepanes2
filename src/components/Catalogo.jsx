@@ -12,7 +12,12 @@ function SocialButtons() {
         className="bg-white p-3 rounded-full shadow-lg transition-transform transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-yellow-300"
         aria-label="Síguenos en Instagram"
       >
-        <span className="text-2xl">📷</span>
+        {/* Reemplaza el emoji con una imagen */}
+        <img 
+          src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png" 
+          alt="Instagram" 
+          className="w-6 h-6"  // Ajusta el tamaño si es necesario
+        />
       </a>
       <a
         href="https://www.tiktok.com/@entrepanes_vcp"
@@ -21,7 +26,12 @@ function SocialButtons() {
         className="bg-white p-3 rounded-full shadow-lg transition-transform transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-yellow-300"
         aria-label="Síguenos en TikTok"
       >
-        <span className="text-2xl">🎵</span>
+        {/* Reemplaza el emoji con una imagen */}
+        <img 
+          src="https://static.vecteezy.com/system/resources/previews/016/716/450/non_2x/tiktok-icon-free-png.png" 
+          alt="TikTok" 
+          className="w-6 h-6"  // Ajusta el tamaño si es necesario
+        />
       </a>
     </div>
   );
@@ -252,13 +262,13 @@ function CatalogSection({ title, items, addToCart, showTitle = true }) {
        }
      };
 
-     const finalizePurchase = async () => {
+          const finalizePurchase = async () => {
        if (cartItems.length === 0) return;
 
-       // Registrar venta y actualizar stock
+       // Registrar venta y actualizar stock (tu código existente)
        await onConfirmSale(cartItems, total);
 
-       // Generar mensaje de WhatsApp
+       // Generar mensaje de WhatsApp (limita longitud para evitar errores)
        let message = "🛒 *Nuevo Pedido - Entrepanes VCP*\n\n";
        cartItems.forEach(item => {
          message += `• ${item.name}\n`;
@@ -273,10 +283,27 @@ function CatalogSection({ title, items, addToCart, showTitle = true }) {
        message += `*Alias para transferencia: ${alias}*\n`;
        message += `*Titular: ${titular}*\n`;
 
+       // Limita el mensaje a ~500 caracteres para evitar problemas
+       if (message.length > 500) {
+         message = message.substring(0, 500) + "... (mensaje truncado)";
+       }
+
        const encodedMessage = encodeURIComponent(message);
        const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
-       window.open(whatsappURL, '_blank');
+
+       try {
+         // Intenta abrir en nueva ventana/pestaña
+         const newWindow = window.open(whatsappURL, '_blank');
+         if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+           // Si falla (ej. bloqueado por pop-up), usa location.href como alternativa
+           window.location.href = whatsappURL;
+         }
+       } catch (error) {
+         console.error('Error al abrir WhatsApp:', error);
+         alert('No se pudo abrir WhatsApp. Copia este enlace manualmente: ' + whatsappURL);
+       }
      };
+     
 
      return (
        <>
