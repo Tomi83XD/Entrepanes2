@@ -247,7 +247,8 @@ function CatalogSection({ title, items, addToCart, showTitle = true }) {
 // ... (el resto del archivo Catalogo.jsx permanece igual hasta el componente Cart)
 
 // Componente de Carrito mejorado
-function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, onDecreaseQty, onConfirmSale }) {
+// Cambia la definición de Cart para incluir onShowNotification
+function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, onDecreaseQty, onConfirmSale, onShowNotification }) {
   const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const alias = "tomas.hornalla";
   const titular = "Tomas Martin Orellana Jimenez";
@@ -266,14 +267,14 @@ function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, on
   const [formErrors, setFormErrors] = useState({});
 
   const copyAlias = async () => {
-    try {
-      await navigator.clipboard.writeText(alias);
-      alert('Alias copiado: ' + alias);
-    } catch (err) {
-      console.error('Error al copiar el alias: ', err);
-      alert('No se pudo copiar el alias.');
-    }
-  };
+  try {
+    await navigator.clipboard.writeText(alias);
+    onShowNotification('Alias copiado', 'success'); // Cambiado de alert a notificación personalizada
+  } catch (err) {
+    console.error('Error al copiar el alias: ', err);
+    onShowNotification('No se pudo copiar el alias.', 'error'); // También para errores
+  }
+};
 
   // Función para validar y enviar el formulario
   const handleCheckoutSubmit = async (e) => {
@@ -691,6 +692,7 @@ export default function Catalogo() {
           onIncreaseQty={increaseQty}
           onDecreaseQty={decreaseQty}
           onConfirmSale={confirmSale} // Nueva prop para confirmar venta
+          onShowNotification={showNotification} // Nueva prop agregada
         />
       )}
 
