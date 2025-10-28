@@ -454,7 +454,8 @@ function AdminPanel() {
                             />
                             <label htmlFor="available-checkbox" className="text-sm font-medium">Producto Disponible</label>
                         </div>
-                                                <div className="col-span-full">
+                                                
+                        <div className="col-span-full">
                             <textarea 
                                 placeholder="Descripción del producto"
                                 value={newProduct.description}
@@ -469,9 +470,7 @@ function AdminPanel() {
                             <input 
                                 type="file" 
                                 accept="image/*"
-                                onChange={(e) => handleImageUpload(e, false)}
-                                className="w-full px-4 py-2 border rounded-xl"
-                            />
+                                onChange={(e) => handleImageUpload(e, false)}                            />
                             {imagePreview && (
                                 <img src={imagePreview} alt="Preview" className="mt-2 w-32 h-32 object-cover rounded-xl" />
                             )}
@@ -504,7 +503,7 @@ function AdminPanel() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {menuItems.map(item => (
                                 <div key={item.id} className={`border rounded-2xl overflow-hidden shadow-lg transition-all ${!item.isAvailable ? 'opacity-60' : ''}`}>
-                                                                        {editingId === item.id ? (
+                                    {editingId === item.id ? (
                                         // Modo Edición
                                         <div className="p-4 bg-yellow-50">
                                             <input 
@@ -722,6 +721,25 @@ function AdminPanel() {
                                             <span className="font-bold">Pedido ID: {sale.id}</span>
                                             <span className="text-gray-600">{new Date(sale.timestamp.seconds * 1000).toLocaleTimeString()}</span>
                                         </div>
+                                        
+                                        {/* Mostrar datos del cliente si existen */}
+                                        {(sale.customerName || sale.customerLastName || sale.phone || sale.address || sale.preferredTime || sale.paymentMethod) ? (
+                                            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                                                <h4 className="font-semibold text-blue-800 mb-2">📋 Datos del Cliente:</h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                                    {sale.customerName && <p><strong>Nombre:</strong> {sale.customerName}</p>}
+                                                    {sale.customerLastName && <p><strong>Apellido:</strong> {sale.customerLastName}</p>}
+                                                    {sale.phone && <p><strong>Teléfono:</strong> {sale.phone}</p>}
+                                                    {sale.address && <p><strong>Dirección:</strong> {sale.address}</p>}
+                                                    {sale.preferredTime && <p><strong>Horario Preferido:</strong> {sale.preferredTime}</p>}
+                                                    {sale.paymentMethod && <p><strong>Forma de Pago:</strong> {sale.paymentMethod}</p>}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-500 text-sm mb-4">No hay datos adicionales del cliente para este pedido.</p>
+                                        )}
+                                        
+                                        {/* Lista de items */}
                                         <ul className="mb-2">
                                             {sale.items.map((item, idx) => (
                                                 <li key={idx} className="text-sm">
