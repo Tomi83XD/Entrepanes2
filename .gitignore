@@ -33,4 +33,5 @@ set-admin-claim.js
 # Ignorar claves de servicio de Firebase Admin
 serviceAccountKey.json
 serviceAccountKey.json.json
+.env
     
