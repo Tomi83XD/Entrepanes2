@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase.js'; // Importa db real (asegúrate de que firebase.js esté configurado)
-import { collection, query, onSnapshot, orderBy, addDoc, updateDoc, doc } from 'firebase/firestore'; // Importa funciones necesarias
+import { db } from '../firebase.js'; 
+import { collection, query, onSnapshot, orderBy, addDoc, updateDoc, doc } from 'firebase/firestore'; 
 
 function SocialButtons() {
   return (
@@ -12,11 +12,10 @@ function SocialButtons() {
         className="bg-white p-3 rounded-full shadow-lg transition-transform transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-yellow-300"
         aria-label="Síguenos en Instagram"
       >
-        {/* Reemplaza el emoji con una imagen */}
         <img 
           src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png" 
           alt="Instagram" 
-          className="w-6 h-6"  // Ajusta el tamaño si es necesario
+          className="w-6 h-6" 
         />
       </a>
       <a
@@ -26,7 +25,6 @@ function SocialButtons() {
         className="bg-white p-3 rounded-full shadow-lg transition-transform transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-yellow-300"
         aria-label="Síguenos en TikTok"
       >
-        {/* Reemplaza el emoji con una imagen */}
         <img 
           src="https://static.vecteezy.com/system/resources/previews/016/716/450/non_2x/tiktok-icon-free-png.png" 
           alt="TikTok" 
@@ -619,14 +617,16 @@ export default function Catalogo() {
   const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const getFilteredItems = () => {
-    if (activeCategory === 'all') {
-      return menuItems;
-    }
-    if (activeCategory === 'featured') {
-      return menuItems.filter(item => item.featured);
-    }
-    return menuItems.filter(item => item.category === activeCategory);
-  };
+  // Primero, filtra solo los productos disponibles
+  let items = menuItems.filter(item => item.isAvailable);
+  if (activeCategory === 'all') {
+    return items;
+  }
+  if (activeCategory === 'featured') {
+    return items.filter(item => item.featured);
+  }
+  return items.filter(item => item.category === activeCategory);
+};
 
   const filteredItems = getFilteredItems();
 
