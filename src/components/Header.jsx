@@ -38,20 +38,20 @@ export default function Header() {
                 <ul className="flex flex-col md:flex-row mx-0 md:mx-2 font-medium items-center">
                     
                     {/* ENLACE HOME */}
-                    <li className="p-2">
+                    <li className="p-2 flex justify-center">
                         <Link
                             to="/" 
-                            className="px-4 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-semibold transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                            className="w-28 h-10 flex items-center justify-center rounded-lg bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-semibold transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-300"
                         >
                             Home
                         </Link>
                     </li>
                     
                     {/* ENLACE CONTACTO */}
-                    <li className="p-2">
+                    <li className="p-2 flex justify-center">
                         <button
                             onClick={handleContactClick}
-                            className="px-4 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-semibold transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                            className="w-28 h-10 flex items-center justify-center rounded-lg bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-semibold transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-300"
                         >
                             Contacto
                         </button>

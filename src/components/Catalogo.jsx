@@ -1,6 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js'; 
 import { collection, query, onSnapshot, orderBy, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore'; 
+import { motion, AnimatePresence } from 'framer-motion'; // NUEVO: Importar Framer Motion
+
+// NUEVO: Variantes de animación reutilizables para consistencia
+const fadeInUp = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 },
+  transition: { duration: 0.5, ease: "easeOut" }
+};
+
+const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: 0.1 // Anima hijos uno por uno
+    }
+  }
+};
+
+const scaleOnHover = {
+  scale: 1.05,
+  transition: { duration: 0.2 }
+};
 
 function SocialButtons() {
   return (
@@ -47,30 +69,46 @@ function NotificationPopup({ message, type = 'success', onHide }) {
   const icon = type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌';
 
   return (
-    <div className={`fixed bottom-24 left-1/2 transform -translate-x-1/2 ${bgColor} text-white font-bold px-6 py-4 rounded-xl shadow-2xl z-50 animate-bounce select-none flex items-center gap-3`}>
-      <span className="text-2xl">{icon}</span>
-      <span>{message}</span>
-    </div>
+    <AnimatePresence> {/* NUEVO: Para animaciones de entrada/salida */}
+      <motion.div 
+        className={`fixed bottom-24 left-1/2 transform -translate-x-1/2 ${bgColor} text-white font-bold px-6 py-4 rounded-xl shadow-2xl z-50 animate-bounce select-none flex items-center gap-3`}
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -50 }}
+        transition={{ duration: 0.3 }}
+      >
+        <span className="text-2xl">{icon}</span>
+        <span>{message}</span>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
 function CategoryFilters({ categories, activeCategory, onSelectCategory }) {
   return (
-    <div className="max-w-screen-xl mx-auto px-6 mb-8 sticky top-20 z-40 bg-yellow-700 py-4 rounded-xl shadow-lg">
+    <motion.div 
+      className="max-w-screen-xl mx-auto px-6 mb-8 sticky top-20 z-40 bg-yellow-700 py-4 rounded-xl shadow-lg"
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
       <div className="flex flex-wrap justify-center gap-3">
-        <button
+        <motion.button
           onClick={() => onSelectCategory('all')}
           className={`px-6 py-3 rounded-full font-bold uppercase transition-all transform hover:scale-105 ${
             activeCategory === 'all'
               ? 'bg-yellow-500 text-yellow-900 shadow-lg scale-105'
               : 'bg-yellow-800/80 text-yellow-200 hover:bg-yellow-700'
           }`}
+          variants={fadeInUp}
+          whileHover={scaleOnHover}
+          whileTap={{ scale: 0.95 }}
         >
           🍽️ Todos
-        </button>
+        </motion.button>
         
         {categories.map((cat) => (
-          <button
+          <motion.button
             key={cat.id}
             onClick={() => onSelectCategory(cat.id)}
             className={`px-6 py-3 rounded-full font-bold uppercase transition-all transform hover:scale-105 ${
@@ -78,12 +116,15 @@ function CategoryFilters({ categories, activeCategory, onSelectCategory }) {
                 ? 'bg-yellow-500 text-yellow-900 shadow-lg scale-105'
                 : 'bg-yellow-800/80 text-yellow-200 hover:bg-yellow-700'
             }`}
+            variants={fadeInUp}
+            whileHover={scaleOnHover}
+            whileTap={{ scale: 0.95 }}
           >
             {cat.icon} {cat.name}
-          </button>
+          </motion.button>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -125,119 +166,130 @@ function CatalogSection({ title, items, addToCart, showTitle = true }) {
           {title}
         </h2>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-        {items.map((item) => {
-          const finalPrice = item.discount > 0 
-            ? item.price - (item.price * item.discount / 100)
-            : item.price;
-          
-          const isOutOfStock = item.stock === 0;
-          const isLowStock = item.limitedStock && item.stock > 0 && item.stock <= 5;
+      <motion.div 
+        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8"
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
+        <AnimatePresence>
+          {items.map((item) => {
+            const finalPrice = item.discount > 0 
+              ? item.price - (item.price * item.discount / 100)
+              : item.price;
+            
+            const isOutOfStock = item.stock === 0;
+            const isLowStock = item.limitedStock && item.stock > 0 && item.stock <= 5;
 
-          return (
-            <article
-              key={item.id}
-              className={`bg-yellow-900/90 backdrop-blur-lg rounded-3xl shadow-xl overflow-hidden flex flex-col hover:shadow-2xl transition-all hover:scale-105 transform relative group ${isOutOfStock ? 'opacity-60' : ''}`}
-            >
-              {/* Badge de stock */}
-              <StockBadge stock={item.stock} limitedStock={item.limitedStock} />
-              
-              {/* Badge de oferta */}
-              {item.discount > 0 && !isOutOfStock && (
-                <div className="absolute top-3 right-3 bg-red-500 text-white font-bold px-3 py-2 rounded-full text-xs z-10 shadow-lg animate-pulse">
-                  -{item.discount}% OFF
-                </div>
-              )}
-              
-              {/* Badge de destacado */}
-              {item.featured && !isOutOfStock && (
-                <div className="absolute top-14 left-3 bg-gradient-to-r from-yellow-400 to-yellow-300 text-yellow-900 font-bold px-3 py-2 rounded-full text-xs z-10 shadow-lg">
-                  ⭐ Destacado
-                </div>
-              )}
-
-              {/* Badge de nuevo */}
-              {item.isNew && !isOutOfStock && (
-                <div className="absolute top-3 left-3 bg-gradient-to-r from-green-400 to-green-500 text-white font-bold px-3 py-2 rounded-full text-xs z-10 shadow-lg">
-                  🆕 Nuevo
-                </div>
-              )}
-
-              <div className="relative overflow-hidden h-48">
-                <img
-                  src={item.image || 'https://via.placeholder.com/300x200?text=Sin+Imagen'}
-                  alt={item.name}
-                  className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-110 ${isOutOfStock ? 'grayscale' : ''}`}
-                  loading="lazy"
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/300x200?text=Sin+Imagen';
-                  }}
-                />
-                {isOutOfStock && (
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                    <span className="text-white font-bold text-2xl">AGOTADO</span>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-yellow-900/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </div>
-
-              <div className="p-5 flex flex-col flex-grow">
-                <h3 className="text-xl font-bold text-yellow-100 mb-2 select-none">{item.name}</h3>
-                {item.description && (
-                  <p className="text-yellow-200 flex-grow text-sm mb-3 line-clamp-2">{item.description}</p>
-                )}
+            return (
+              <motion.article
+                key={item.id}
+                className={`bg-yellow-900/90 backdrop-blur-lg rounded-3xl shadow-xl overflow-hidden flex flex-col hover:shadow-2xl transition-all hover:scale-105 transform relative group ${isOutOfStock ? 'opacity-60' : ''}`}
+                variants={fadeInUp}
+                layout // Para transiciones suaves al reordenar
+                whileHover={scaleOnHover}
+                exit={{ opacity: 0, scale: 0.8 }}
+              >
+                {/* Badge de stock */}
+                <StockBadge stock={item.stock} limitedStock={item.limitedStock} />
                 
-                {/* Mostrar stock disponible */}
-                {!isOutOfStock && item.limitedStock && (
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs text-yellow-300 mb-1">
-                      <span>Stock disponible</span>
-                      <span className="font-bold">{item.stock} unidades</span>
-                    </div>
-                    <div className="w-full bg-yellow-700 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all ${
-                          item.stock <= 3 ? 'bg-red-500' : 
-                          item.stock <= 5 ? 'bg-orange-500' : 
-                          'bg-green-500'
-                        }`}
-                        style={{ width: `${Math.min((item.stock / 10) * 100, 100)}%` }}
-                      ></div>
-                    </div>
+                {/* Badge de oferta */}
+                {item.discount > 0 && !isOutOfStock && (
+                  <div className="absolute top-3 right-3 bg-red-500 text-white font-bold px-3 py-2 rounded-full text-xs z-10 shadow-lg animate-pulse">
+                    -{item.discount}% OFF
                   </div>
                 )}
                 
-                <div className="mt-auto">
-                  {item.discount > 0 ? (
-                    <div className="flex items-center gap-2 mb-3">
-                      <p className="font-extrabold text-2xl text-yellow-300 select-none">${finalPrice.toFixed(0)}</p>
-                      <p className="text-sm text-yellow-400 line-through select-none">${item.price}</p>
-                      <span className="ml-auto bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">
-                        Ahorrás ${(item.price - finalPrice).toFixed(0)}
-                      </span>
+                {/* Badge de destacado */}
+                {item.featured && !isOutOfStock && (
+                  <div className="absolute top-14 left-3 bg-gradient-to-r from-yellow-400 to-yellow-300 text-yellow-900 font-bold px-3 py-2 rounded-full text-xs z-10 shadow-lg">
+                    ⭐ Destacado
+                  </div>
+                )}
+
+                {/* Badge de nuevo */}
+                {item.isNew && !isOutOfStock && (
+                  <div className="absolute top-3 left-3 bg-gradient-to-r from-green-400 to-green-500 text-white font-bold px-3 py-2 rounded-full text-xs z-10 shadow-lg">
+                    🆕 Nuevo
+                  </div>
+                )}
+
+                <div className="relative overflow-hidden h-48">
+                  <img
+                    src={item.image || 'https://via.placeholder.com/300x200?text=Sin+Imagen'}
+                    alt={item.name}
+                    className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-110 ${isOutOfStock ? 'grayscale' : ''}`}
+                    loading="lazy"
+                    onError={(e) => {
+                      e.target.src = 'https://via.placeholder.com/300x200?text=Sin+Imagen';
+                    }}
+                  />
+                  {isOutOfStock && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <span className="text-white font-bold text-2xl">AGOTADO</span>
                     </div>
-                  ) : (
-                    <p className="font-extrabold text-2xl text-yellow-300 select-none mb-3">${item.price}</p>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-yellow-900/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </div>
+
+                <div className="p-5 flex flex-col flex-grow">
+                  <h3 className="text-xl font-bold text-yellow-100 mb-2 select-none">{item.name}</h3>
+                  {item.description && (
+                    <p className="text-yellow-200 flex-grow text-sm mb-3 line-clamp-2">{item.description}</p>
                   )}
                   
-                  <button
-                    onClick={() => !isOutOfStock && addToCart({ ...item, finalPrice })}
-                    type="button"
-                    disabled={isOutOfStock}
-                    className={`w-full font-bold uppercase rounded-xl py-3 shadow-lg transition-all transform focus:outline-none focus:ring-4 focus:ring-yellow-300 select-none ${
-                      isOutOfStock 
-                        ? 'bg-gray-500 text-gray-300 cursor-not-allowed' 
-                        : 'bg-gradient-to-r from-yellow-500 to-yellow-400 hover:from-yellow-400 hover:to-yellow-300 text-yellow-900 hover:scale-105'
-                    }`}
-                  >
-                    {isOutOfStock ? '😢 Agotado' : '🛒 Añadir al Carrito'}
-                  </button>
+                  {/* Mostrar stock disponible */}
+                  {!isOutOfStock && item.limitedStock && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between text-xs text-yellow-300 mb-1">
+                        <span>Stock disponible</span>
+                        <span className="font-bold">{item.stock} unidades</span>
+                      </div>
+                      <div className="w-full bg-yellow-700 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all ${
+                            item.stock <= 3 ? 'bg-red-500' : 
+                            item.stock <= 5 ? 'bg-orange-500' : 
+                            'bg-green-500'
+                          }`}
+                          style={{ width: `${Math.min((item.stock / 10) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="mt-auto">
+                    {item.discount > 0 ? (
+                      <div className="flex items-center gap-2 mb-3">
+                        <p className="font-extrabold text-2xl text-yellow-300 select-none">${finalPrice.toFixed(0)}</p>
+                        <p className="text-sm text-yellow-400 line-through select-none">${item.price}</p>
+                        <span className="ml-auto bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                          Ahorrás ${(item.price - finalPrice).toFixed(0)}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="font-extrabold text-2xl text-yellow-300 select-none mb-3">${item.price}</p>
+                    )}
+                    
+                    <button
+                      onClick={() => !isOutOfStock && addToCart({ ...item, finalPrice })}
+                      type="button"
+                      disabled={isOutOfStock}
+                      className={`w-full font-bold uppercase rounded-xl py-3 shadow-lg transition-all transform focus:outline-none focus:ring-4 focus:ring-yellow-300 select-none ${
+                        isOutOfStock 
+                          ? 'bg-gray-500 text-gray-300 cursor-not-allowed' 
+                          : 'bg-gradient-to-r from-yellow-500 to-yellow-400 hover:from-yellow-400 hover:to-yellow-300 text-yellow-900 hover:scale-105'
+                      }`}
+                    >
+                      {isOutOfStock ? '😢 Agotado' : '🛒 Añadir al Carrito'}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </article>
-          );
-        })}
-      </div>
+              </motion.article>
+            );
+          })}
+        </AnimatePresence>
+      </motion.div>
     </section>
   );
 }
@@ -329,8 +381,24 @@ function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, on
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onClose} aria-hidden="true" />
-      <aside className="fixed top-0 right-0 w-full max-w-md h-full bg-yellow-900 text-yellow-200 p-6 shadow-lg z-50 flex flex-col overflow-auto rounded-l-3xl transition-transform duration-300" role="dialog" aria-modal="true" aria-labelledby="cart-title">
+      <motion.div 
+        className="fixed inset-0 bg-black bg-opacity-50 z-40" 
+        onClick={onClose} 
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      />
+      <motion.aside 
+        className="fixed top-0 right-0 w-full max-w-md h-full bg-yellow-900 text-yellow-200 p-6 shadow-lg z-50 flex flex-col overflow-auto rounded-l-3xl transition-transform duration-300" 
+        role="dialog" 
+        aria-modal="true" 
+        aria-labelledby="cart-title"
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      >
         <h2 id="cart-title" className="text-3xl font-extrabold mb-6 select-none">🛒 Tu Carrito</h2>
         <button onClick={onClose} aria-label="Cerrar carrito" className="self-end text-yellow-400 hover:text-yellow-300 mb-6 font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded">✕</button>
 
@@ -485,7 +553,7 @@ function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, on
             )}
           </>
         )}
-      </aside>
+      </motion.aside>
     </>
   );
 }
@@ -690,24 +758,46 @@ export default function Catalogo() {
 
   const filteredItems = getFilteredItems();
 
-  if (loading) {
+    if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-yellow-700">
-        <div className="text-white text-2xl font-semibold animate-pulse">🍞 Cargando catálogo delicioso...</div>
-      </div>
+      <motion.div 
+        className="flex items-center justify-center min-h-screen bg-yellow-700"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      >
+        <motion.div 
+          className="text-white text-2xl font-semibold"
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ repeat: Infinity, duration: 1.5 }}
+        >
+          🍞 Cargando catálogo delicioso...
+        </motion.div>
+      </motion.div>
     );
   }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-yellow-700 via-yellow-600 to-yellow-800 pt-20 pb-12 px-4 relative">
-      <div className="text-center mb-8">
-        <h1 className="text-5xl md:text-6xl font-serif font-extrabold text-white drop-shadow-2xl mb-4 select-none animate-fade-in">
+      <motion.div 
+        className="text-center mb-8"
+        variants={fadeInUp}
+        initial="initial"
+        animate="animate"
+      >
+        <motion.h1 
+          className="text-5xl md:text-6xl font-serif font-extrabold text-white drop-shadow-2xl mb-4 select-none"
+          variants={fadeInUp}
+        >
           🍞 Nuestro Catálogo 🍞
-        </h1>
-        <p className="text-yellow-200 text-lg md:text-xl font-medium select-none">
+        </motion.h1>
+        <motion.p 
+          className="text-yellow-200 text-lg md:text-xl font-medium select-none"
+          variants={fadeInUp}
+        >
           Los mejores sándwiches de Carlos Paz te esperan
-        </p>
-      </div>
+        </motion.p>
+      </motion.div>
 
       <button
         onClick={toggleCart}
