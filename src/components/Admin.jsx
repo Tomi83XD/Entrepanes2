@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase.js';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'; 
 import { collection, query, onSnapshot, doc, updateDoc, addDoc, deleteDoc, where, orderBy } from 'firebase/firestore';
+import Papa from 'papaparse'; // Para exportar CSV (instala con npm install papaparse)
 
 // Iconos simples con emojis
 const Trash2 = () => <span>🗑️</span>;
@@ -12,6 +13,8 @@ const Eye = () => <span>👁️</span>;
 const EyeOff = () => <span>🚫</span>;
 const Plus = () => <span>➕</span>;
 const Star = () => <span>⭐</span>;
+const Search = () => <span>🔍</span>;
+const Filter = () => <span>🔽</span>;
 
 function AdminPanel() {
     const [user, setUser] = useState(null);
@@ -44,6 +47,11 @@ function AdminPanel() {
     // Nuevos estados para ventas del día
     const [dailySales, setDailySales] = useState([]);
     const [totalSalesToday, setTotalSalesToday] = useState(0);
+    
+    // Nuevos estados para mejoras
+    const [searchTerm, setSearchTerm] = useState('');
+    const [activeFilter, setActiveFilter] = useState('all');
+    const [lowStockAlerts, setLowStockAlerts] = useState([]);
     
     // Categorías que coinciden con tu Catalogo
     const categories = ['miga', 'pebete', 'bebidas', 'postres', 'otros'];
@@ -103,6 +111,10 @@ function AdminPanel() {
                 });
             });
             setMenuItems(items);
+            
+            // Generar alertas de stock bajo
+            const alerts = items.filter(item => item.stock <= 5 && item.stock > 0);
+            setLowStockAlerts(alerts);
         }, (error) => {
             console.error("Error al cargar el menú:", error);
         });
@@ -288,6 +300,49 @@ function AdminPanel() {
         signOut(auth);
     };
 
+    // Nuevas funciones para mejoras
+    const exportSalesToCSV = () => {
+        const csvData = dailySales.map(sale => ({
+            ID: sale.id,
+            Fecha: sale.date,
+            Total: sale.total,
+            Items: sale.items.map(i => `${i.name} x${i.quantity}`).join('; '),
+            Cliente: `${sale.customerName || ''} ${sale.customerLastName || ''}`.trim(),
+            Telefono: sale.phone || '',
+            Direccion: sale.address || '',
+            Horario: sale.preferredTime || '',
+            Pago: sale.paymentMethod || ''
+        }));
+        const csv = Papa.unparse(csvData);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `ventas-${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+    };
+
+    const getFilteredItems = () => {
+        let items = menuItems;
+        if (searchTerm) {
+            items = items.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        }
+        if (activeFilter !== 'all') {
+            items = items.filter(item => item.category === activeFilter);
+        }
+        return items;
+    };
+
+    const getTopSellingProduct = () => {
+        const productCounts = {};
+        dailySales.forEach(sale => {
+            sale.items.forEach(item => {
+                productCounts[item.name] = (productCounts[item.name] || 0) + item.quantity;
+            });
+        });
+        const topProduct = Object.entries(productCounts).reduce((a, b) => a[1] > b[1] ? a : b, ['', 0]);
+        return topProduct[0] || 'Ninguno';
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-yellow-700">
@@ -344,6 +399,8 @@ function AdminPanel() {
         );
     }
 
+    const filteredItems = getFilteredItems();
+
     return (
         <div className="min-h-screen bg-yellow-700 p-4 sm:p-8">
             <div className="max-w-7xl mx-auto">
@@ -359,6 +416,18 @@ function AdminPanel() {
                         </button>
                     </div>
                 </div>
+
+                {/* Alertas de Stock Bajo */}
+                {lowStockAlerts.length > 0 && (
+                    <div className="bg-orange-100 border-l-4 border-orange-500 text-orange-700 p-4 mb-6 rounded-xl">
+                        <h3 className="font-bold">⚠️ Alertas de Stock Bajo</h3>
+                        <ul>
+                            {lowStockAlerts.map(item => (
+                                <li key={item.id}>{item.name}: {item.stock} unidades restantes</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
                 {/* Agregar Producto */}
                 <div className="bg-white rounded-3xl shadow-2xl p-6 mb-6">
@@ -411,7 +480,7 @@ function AdminPanel() {
                             className="px-4 py-2 border rounded-xl focus:ring-2 focus:ring-yellow-500"
                         />
                         
-                        <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2">
                             <input 
                                 type="checkbox"
                                 checked={newProduct.limitedStock}
@@ -491,17 +560,43 @@ function AdminPanel() {
                     )}
                 </div>
 
-                {/* Lista de Productos */}
+                {/* Lista de Productos con Búsqueda y Filtros */}
                 <div className="bg-white rounded-3xl shadow-2xl p-6 mb-6">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">📋 Productos del Menú ({menuItems.length})</h2>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4">📋 Productos del Menú ({filteredItems.length})</h2>
                     
-                    {menuItems.length === 0 ? (
+                    {/* Búsqueda y Filtros */}
+                    <div className="flex flex-col md:flex-row gap-4 mb-4">
+                        <div className="flex-1 relative">
+                            <Search />
+                            <input 
+                                type="text" 
+                                placeholder="Buscar productos..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 border rounded-xl focus:ring-2 focus:ring-yellow-500"
+                            />
+                        </div>
+                        <select 
+                            value={activeFilter}
+                            onChange={(e) => setActiveFilter(e.target.value)}
+                            className="px-4 py-2 border rounded-xl focus:ring-2 focus:ring-yellow-500"
+                        >
+                            <option value="all">Todas las Categorías</option>
+                            <option value="miga">Sándwiches de Miga</option>
+                            <option value="pebete">Pebetes</option>
+                            <option value="bebidas">Bebidas</option>
+                            <option value="postres">Postres</option>
+                            <option value="otros">Otros</option>
+                        </select>
+                    </div>
+                    
+                    {filteredItems.length === 0 ? (
                         <div className="text-center text-gray-500 py-10">
-                            No hay productos agregados todavía. ¡Agrega el primero! 🎉
+                            No hay productos que coincidan con tu búsqueda. ¡Agrega el primero! 🎉
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {menuItems.map(item => (
+                            {filteredItems.map(item => (
                                 <div key={item.id} className={`border rounded-2xl overflow-hidden shadow-lg transition-all ${!item.isAvailable ? 'opacity-60' : ''}`}>
                                     {editingId === item.id ? (
                                         // Modo Edición
@@ -701,57 +796,76 @@ function AdminPanel() {
                     )}
                 </div>
 
-                {/* Ventas del Día */}
+                {/* Ventas del Día con Estadísticas */}
                 <div className="bg-white rounded-3xl shadow-2xl p-6">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">📊 Ventas del Día ({dailySales.length} pedidos)</h2>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-2xl font-bold text-gray-800">📊 Ventas del Día ({dailySales.length} pedidos)</h2>
+                        <button 
+                            onClick={exportSalesToCSV}
+                            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg"
+                        >
+                            📄 Exportar CSV
+                        </button>
+                    </div>
+                    
+                    {/* Estadísticas Rápidas */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div className="bg-green-100 p-4 rounded-xl text-center">
+                            <h3 className="font-bold text-green-800">Total Vendido</h3>
+                            <p className="text-2xl font-extrabold text-green-600">${totalSalesToday.toFixed(0)}</p>
+                        </div>
+                        <div className="bg-blue-100 p-4 rounded-xl text-center">
+                            <h3 className="font-bold text-blue-800">Pedidos Hoy</h3>
+                            <p className="text-2xl font-extrabold text-blue-600">{dailySales.length}</p>
+                        </div>
+                        <div className="bg-purple-100 p-4 rounded-xl text-center">
+                            <h3 className="font-bold text-purple-800">Producto Más Vendido</h3>
+                            <p className="text-lg font-extrabold text-purple-600">{getTopSellingProduct()}</p>
+                        </div>
+                    </div>
                     
                     {dailySales.length === 0 ? (
                         <div className="text-center text-gray-500 py-10">
                             No hay ventas registradas hoy. ¡Esperemos que llegue la primera! 🎉
                         </div>
                     ) : (
-                        <>
-                            <div className="mb-4 text-xl font-bold text-green-600">
-                                Total Vendido Hoy: ${totalSalesToday.toFixed(0)}
-                            </div>
-                            <div className="space-y-4">
-                                {dailySales.map(sale => (
-                                    <div key={sale.id} className="border rounded-xl p-4 bg-gray-50">
-                                        <div className="flex justify-between mb-2">
-                                            <span className="font-bold">Pedido ID: {sale.id}</span>
-                                            <span className="text-gray-600">{new Date(sale.timestamp.seconds * 1000).toLocaleTimeString()}</span>
-                                        </div>
-                                        
-                                        {/* Mostrar datos del cliente si existen */}
-                                        {(sale.customerName || sale.customerLastName || sale.phone || sale.address || sale.preferredTime || sale.paymentMethod) ? (
-                                            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                                                <h4 className="font-semibold text-blue-800 mb-2">📋 Datos del Cliente:</h4>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                                    {sale.customerName && <p><strong>Nombre:</strong> {sale.customerName}</p>}
-                                                    {sale.customerLastName && <p><strong>Apellido:</strong> {sale.customerLastName}</p>}
-                                                    {sale.phone && <p><strong>Teléfono:</strong> {sale.phone}</p>}
-                                                    {sale.address && <p><strong>Dirección:</strong> {sale.address}</p>}
-                                                    {sale.preferredTime && <p><strong>Horario Preferido:</strong> {sale.preferredTime}</p>}
-                                                    {sale.paymentMethod && <p><strong>Forma de Pago:</strong> {sale.paymentMethod}</p>}
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <p className="text-gray-500 text-sm mb-4">No hay datos adicionales del cliente para este pedido.</p>
-                                        )}
-                                        
-                                        {/* Lista de items */}
-                                        <ul className="mb-2">
-                                            {sale.items.map((item, idx) => (
-                                                <li key={idx} className="text-sm">
-                                                    {item.quantity} x {item.name} - ${item.subtotal.toFixed(0)}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                        <div className="font-bold text-right">Total: ${sale.total.toFixed(0)}</div>
+                        <div className="space-y-4">
+                            {dailySales.map(sale => (
+                                <div key={sale.id} className="border rounded-xl p-4 bg-gray-50">
+                                    <div className="flex justify-between mb-2">
+                                        <span className="font-bold">Pedido ID: {sale.id}</span>
+                                        <span className="text-gray-600">{new Date(sale.timestamp.seconds * 1000).toLocaleTimeString()}</span>
                                     </div>
-                                ))}
-                            </div>
-                        </>
+                                    
+                                    {/* Mostrar datos del cliente si existen */}
+                                    {(sale.customerName || sale.customerLastName || sale.phone || sale.address || sale.preferredTime || sale.paymentMethod) ? (
+                                        <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                                            <h4 className="font-semibold text-blue-800 mb-2">📋 Datos del Cliente:</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                                {sale.customerName && <p><strong>Nombre:</strong> {sale.customerName}</p>}
+                                                {sale.customerLastName && <p><strong>Apellido:</strong> {sale.customerLastName}</p>}
+                                                {sale.phone && <p><strong>Teléfono:</strong> {sale.phone}</p>}
+                                                {sale.address && <p><strong>Dirección:</strong> {sale.address}</p>}
+                                                {sale.preferredTime && <p><strong>Horario Preferido:</strong> {sale.preferredTime}</p>}
+                                                {sale.paymentMethod && <p><strong>Forma de Pago:</strong> {sale.paymentMethod}</p>}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-gray-500 text-sm mb-4">No hay datos adicionales del cliente para este pedido.</p>
+                                    )}
+                                    
+                                    {/* Lista de items */}
+                                    <ul className="mb-2">
+                                        {sale.items.map((item, idx) => (
+                                            <li key={idx} className="text-sm">
+                                                {item.quantity} x {item.name} - ${item.subtotal.toFixed(0)}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <div className="font-bold text-right">Total: ${sale.total.toFixed(0)}</div>
+                                </div>
+                            ))}
+                        </div>
                     )}
                 </div>
             </div>

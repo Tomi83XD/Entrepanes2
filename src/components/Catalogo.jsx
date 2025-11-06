@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js'; 
-import { collection, query, onSnapshot, orderBy, addDoc, updateDoc, doc } from 'firebase/firestore'; 
+import { collection, query, onSnapshot, orderBy, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore'; 
 
 function SocialButtons() {
   return (
@@ -28,7 +28,7 @@ function SocialButtons() {
         <img 
           src="https://static.vecteezy.com/system/resources/previews/016/716/450/non_2x/tiktok-icon-free-png.png" 
           alt="TikTok" 
-          className="w-6 h-6"  // Ajusta el tamaño si es necesario
+          className="w-6 h-6"  
         />
       </a>
     </div>
@@ -242,10 +242,7 @@ function CatalogSection({ title, items, addToCart, showTitle = true }) {
   );
 }
 
-// ... (el resto del archivo Catalogo.jsx permanece igual hasta el componente Cart)
-
-// Componente de Carrito mejorado
-// Cambia la definición de Cart para incluir onShowNotification
+// Componente de Carrito mejorado con persistencia, validaciones y resumen
 function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, onDecreaseQty, onConfirmSale, onShowNotification }) {
   const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const alias = "tomas.hornalla";
@@ -265,16 +262,23 @@ function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, on
   const [formErrors, setFormErrors] = useState({});
 
   const copyAlias = async () => {
-  try {
-    await navigator.clipboard.writeText(alias);
-    onShowNotification('Alias copiado', 'success'); // Cambiado de alert a notificación personalizada
-  } catch (err) {
-    console.error('Error al copiar el alias: ', err);
-    onShowNotification('No se pudo copiar el alias.', 'error'); // También para errores
-  }
-};
+    try {
+      await navigator.clipboard.writeText(alias);
+      onShowNotification('Alias copiado', 'success');
+    } catch (err) {
+      console.error('Error al copiar el alias: ', err);
+      onShowNotification('No se pudo copiar el alias.', 'error');
+    }
+  };
 
-  // Función para validar y enviar el formulario
+  // Función para enviar pedido por WhatsApp (mejorada)
+  const sendToWhatsApp = () => {
+    const message = `Hola, quiero hacer un pedido:\n${cartItems.map(item => `${item.quantity} x ${item.name} - $${(item.price * item.quantity).toFixed(2)}`).join('\n')}\nTotal: $${total.toFixed(2)}\nDirección: [Ingresa tu dirección aquí]`;
+    const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
+
+  // Función para validar y enviar el formulario (con validaciones avanzadas)
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
     const errors = {};
@@ -291,23 +295,42 @@ function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, on
 
     if (cartItems.length === 0) return;
 
+    // Nueva validación: Verificar stock en tiempo real contra Firestore
+    try {
+      for (const item of cartItems) {
+        const itemRef = doc(db, 'menu', item.id);
+        const itemSnap = await getDoc(itemRef);
+        if (itemSnap.exists()) {
+          const currentStock = itemSnap.data().stock || 0;
+          if (currentStock < item.quantity) {
+            onShowNotification(`Stock insuficiente para ${item.name}. Disponible: ${currentStock}`, 'warning');
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error al verificar stock:', error);
+      onShowNotification('Error al verificar stock. Inténtalo de nuevo.', 'error');
+      return;
+    }
+
     // Registrar venta con datos del cliente
     try {
-      await onConfirmSale(cartItems, total, checkoutData); // Pasamos checkoutData a la función
+      await onConfirmSale(cartItems, total, checkoutData);
       setShowCheckoutForm(false);
       setCheckoutData({ customerName: '', customerLastName: '', phone: '', address: '', preferredTime: '', paymentMethod: 'Efectivo' });
       setFormErrors({});
-      alert('¡Pedido enviado exitosamente! Te contactaremos pronto.');
+      onShowNotification('¡Pedido enviado exitosamente! Te contactaremos pronto.', 'success');
     } catch (error) {
       console.error('Error al procesar el pedido:', error);
-      alert('Error al procesar el pedido. Inténtalo de nuevo.');
+      onShowNotification('Error al procesar el pedido. Inténtalo de nuevo.', 'error');
     }
   };
 
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onClose} aria-hidden="true" />
-      <aside className="fixed top-0 right-0 w-full max-w-md h-full bg-yellow-900 text-yellow-200 p-6 shadow-lg z-50 flex flex-col overflow-auto rounded-l-3xl" role="dialog" aria-modal="true" aria-labelledby="cart-title">
+      <aside className="fixed top-0 right-0 w-full max-w-md h-full bg-yellow-900 text-yellow-200 p-6 shadow-lg z-50 flex flex-col overflow-auto rounded-l-3xl transition-transform duration-300" role="dialog" aria-modal="true" aria-labelledby="cart-title">
         <h2 id="cart-title" className="text-3xl font-extrabold mb-6 select-none">🛒 Tu Carrito</h2>
         <button onClick={onClose} aria-label="Cerrar carrito" className="self-end text-yellow-400 hover:text-yellow-300 mb-6 font-semibold focus:outline-none focus:ring-2 focus:ring-yellow-400 rounded">✕</button>
 
@@ -325,8 +348,27 @@ function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, on
           // Formulario de Checkout
           <form onSubmit={handleCheckoutSubmit} className="flex-grow overflow-auto">
             <h3 className="text-2xl font-bold mb-4 text-yellow-100">📝 Finalizar Pedido</h3>
+
+            {/* Resumen del Pedido (Nueva mejora) */}
+            <div className="bg-yellow-800 bg-opacity-40 p-4 rounded-xl mb-4 select-none">
+              <h4 className="font-semibold text-yellow-400 mb-2">Resumen del Pedido</h4>
+              <ul className="space-y-1">
+                {cartItems.map(item => (
+                  <li key={item.id} className="flex justify-between text-sm">
+                    <span>{item.quantity} x {item.name}</span>
+                    <span>${(item.price * item.quantity).toFixed(2)}</span>
+                  </li>
+                ))}
+              </ul>
+              <hr className="my-2 border-yellow-600" />
+              <div className="flex justify-between font-bold text-yellow-300">
+                <span>Total:</span>
+                <span>${total.toFixed(2)}</span>
+              </div>
+            </div>
+
             <div className="space-y-4">
-              <div>
+                            <div>
                 <label className="block text-yellow-300 font-semibold mb-1">Nombre *</label>
                 <input
                   type="text"
@@ -432,6 +474,9 @@ function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, on
                   <button onClick={() => setShowCheckoutForm(true)} className="flex-grow bg-green-500 hover:bg-green-400 text-yellow-900 font-semibold uppercase py-3 rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300 select-none">
                     Finalizar Compra
                   </button>
+                  <button onClick={sendToWhatsApp} className="flex-grow bg-green-600 hover:bg-green-500 text-white font-semibold uppercase py-3 rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-400 select-none">
+                    📱 Enviar por WhatsApp
+                  </button>
                   <button onClick={onClearCart} className="flex-grow bg-red-600 hover:bg-red-500 text-yellow-100 font-semibold uppercase py-3 rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-400 select-none">
                     Vaciar Carrito
                   </button>
@@ -444,8 +489,6 @@ function Cart({ cartItems, onClose, onRemoveItem, onClearCart, onIncreaseQty, on
     </>
   );
 }
-
-// ... (el resto del archivo Catalogo.jsx permanece igual)
 
 export default function Catalogo() {
   const [cartItems, setCartItems] = useState([]);
@@ -466,7 +509,7 @@ export default function Catalogo() {
 
   // Hook para cargar datos de Firestore
   useEffect(() => {
-    const q = query(collection(db, 'menu'), orderBy('name')); // Ordena por nombre (puedes cambiar a otro campo si quieres)
+    const q = query(collection(db, 'menu'), orderBy('name'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const items = [];
       querySnapshot.forEach((docSnap) => {
@@ -495,6 +538,24 @@ export default function Catalogo() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const savedCart = localStorage.getItem('cartItems');
+    if (savedCart && savedCart !== 'undefined' && savedCart !== '') {
+      try {
+        setCartItems(JSON.parse(savedCart));
+      } catch (error) {
+        console.error('Error parsing cart from localStorage:', error);
+        localStorage.removeItem('cartItems'); // Limpiar datos corruptos si es necesario
+      }
+    }
+  }, []);
+
+
+  const updateCart = (newCart) => {
+    setCartItems(newCart);
+    localStorage.setItem('cartItems', JSON.stringify(newCart));
+  };
+
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
   };
@@ -504,46 +565,46 @@ export default function Catalogo() {
   };
 
   const confirmSale = async (cartItems, total, checkoutData) => {
-  try {
-    // Registrar la venta en 'sales' con datos del cliente
-    const saleData = {
-      date: new Date().toISOString().split('T')[0], // Fecha en formato YYYY-MM-DD
-      items: cartItems.map(item => ({
-        id: item.id,
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-        subtotal: item.price * item.quantity
-      })),
-      total: total,
-      timestamp: new Date(),
-      // Nuevos campos del cliente
-      customerName: checkoutData.customerName,
-      customerLastName: checkoutData.customerLastName,
-      phone: checkoutData.phone,
-      address: checkoutData.address,
-      preferredTime: checkoutData.preferredTime,
-      paymentMethod: checkoutData.paymentMethod
-    };
-    await addDoc(collection(db, 'sales'), saleData);
+    try {
+      // Registrar la venta en 'sales' con datos del cliente
+      const saleData = {
+        date: new Date().toISOString().split('T')[0], // Fecha en formato YYYY-MM-DD
+        items: cartItems.map(item => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          subtotal: item.price * item.quantity
+        })),
+        total: total,
+        timestamp: new Date(),
+        // Nuevos campos del cliente
+        customerName: checkoutData.customerName,
+        customerLastName: checkoutData.customerLastName,
+        phone: checkoutData.phone,
+        address: checkoutData.address,
+        preferredTime: checkoutData.preferredTime,
+        paymentMethod: checkoutData.paymentMethod
+      };
+      await addDoc(collection(db, 'sales'), saleData);
 
-    // Disminuir stock en 'menu' para cada item
-    for (const item of cartItems) {
-      const itemRef = doc(db, 'menu', item.id);
-      const currentStock = menuItems.find(m => m.id === item.id)?.stock || 0;
-      const newStock = Math.max(0, currentStock - item.quantity); // Evita stock negativo
-      await updateDoc(itemRef, { stock: newStock });
+      // Disminuir stock en 'menu' para cada item
+      for (const item of cartItems) {
+        const itemRef = doc(db, 'menu', item.id);
+        const currentStock = menuItems.find(m => m.id === item.id)?.stock || 0;
+        const newStock = Math.max(0, currentStock - item.quantity);
+        await updateDoc(itemRef, { stock: newStock });
+      }
+
+      // Limpiar carrito después de confirmar
+      updateCart([]);
+      setIsCartOpen(false);
+    } catch (error) {
+      console.error('Error al confirmar venta:', error);
+      throw error; // Para que el componente Cart maneje el error
     }
+  };
 
-    // Limpiar carrito después de confirmar
-    setCartItems([]);
-    setIsCartOpen(false);
-    showNotification('¡Pedido registrado exitosamente!', 'success');
-  } catch (error) {
-    console.error('Error al confirmar venta:', error);
-    showNotification('Error al procesar el pedido. Inténtalo de nuevo.', 'error');
-  }
-};
   const addToCart = (item) => {
     // Verificar stock disponible
     const currentCartItem = cartItems.find(i => i.id === item.id);
@@ -554,7 +615,7 @@ export default function Catalogo() {
       return;
     }
     
-    setCartItems((prevItems) => {
+    updateCart((prevItems) => {
       const found = prevItems.find((i) => i.id === item.id); 
       if (found) {
         return prevItems.map((i) =>
@@ -572,11 +633,11 @@ export default function Catalogo() {
   };
 
   const removeItem = (id) => {
-    setCartItems((prevItems) => prevItems.filter((item) => item.id !== id));
+    updateCart((prevItems) => prevItems.filter((item) => item.id !== id));
   };
 
   const clearCart = () => {
-    setCartItems([]);
+    updateCart([]);
     setIsCartOpen(false);
   };
 
@@ -589,7 +650,7 @@ export default function Catalogo() {
       return;
     }
     
-    setCartItems((prevItems) =>
+    updateCart((prevItems) =>
       prevItems.map((item) =>
         item.id === id ? { ...item, quantity: item.quantity + 1 } : item
       )
@@ -597,7 +658,7 @@ export default function Catalogo() {
   };
 
   const decreaseQty = (id) => {
-    setCartItems((prevItems) =>
+    updateCart((prevItems) =>
       prevItems
         .map((item) => {
           if (item.id === id) {
@@ -617,16 +678,15 @@ export default function Catalogo() {
   const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const getFilteredItems = () => {
-  // Primero, filtra solo los productos disponibles
-  let items = menuItems.filter(item => item.isAvailable);
-  if (activeCategory === 'all') {
-    return items;
-  }
-  if (activeCategory === 'featured') {
-    return items.filter(item => item.featured);
-  }
-  return items.filter(item => item.category === activeCategory);
-};
+    let items = menuItems.filter(item => item.isAvailable);
+    if (activeCategory === 'all') {
+      return items;
+    }
+    if (activeCategory === 'featured') {
+      return items.filter(item => item.featured);
+    }
+    return items.filter(item => item.category === activeCategory);
+  };
 
   const filteredItems = getFilteredItems();
 
@@ -691,8 +751,8 @@ export default function Catalogo() {
           onClearCart={clearCart}
           onIncreaseQty={increaseQty}
           onDecreaseQty={decreaseQty}
-          onConfirmSale={confirmSale} // Nueva prop para confirmar venta
-          onShowNotification={showNotification} // Nueva prop agregada
+          onConfirmSale={confirmSale}
+          onShowNotification={showNotification}
         />
       )}
 

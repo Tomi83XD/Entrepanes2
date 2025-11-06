@@ -1,41 +1,54 @@
 // App.jsx
 import './App.css';
-// Renombra Router a BrowserRouter para claridad, aunque el alias funciona
+import { useState, useEffect } from 'react';  // Agrega estos imports para el estado offline
 import { BrowserRouter, Route, Routes } from 'react-router-dom'; 
 import Header from './components/Header';
 import Body from './components/Body';
 import HeaderBodyDivider from './components/HeaderBodyDivider';
 import Catalogo from './components/Catalogo';
-// Se asume que el AdminPanel también sirve como la página de Login
 import AdminPanel from './components/Admin'; 
 
-
 function App() {
+    // Estado para detectar si está online
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    // useEffect para escuchar cambios de conectividad
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
     return (
-        // Usamos BrowserRouter directamente, en lugar del alias Router
         <BrowserRouter> 
             <>
+                {/* Banner de offline: Se muestra solo si no está online */}
+                {!isOnline && (
+                    <div className="bg-yellow-500 text-black p-4 text-center font-bold">
+                        ⚠️ Estás offline. Algunas funciones pueden no estar disponibles. Conéctate para sincronizar pedidos.
+                    </div>
+                )}
+                
                 <Header />
                 <HeaderBodyDivider />
                 <Routes> 
                     <Route path="/" element={<Body />} /> 
                     <Route path="/catalogo" element={<Catalogo />} /> 
-                    
-                    {/* ******************************************* */}
-                    {/* NUEVA RUTA: El botón de Login dirige aquí */}
                     <Route path="/login" element={<AdminPanel />} /> 
-                    {/* ******************************************* */}
-                    
                 </Routes>
             </>
         </BrowserRouter>
     );
 }
 
-if ('serviceWorker' in navigator) {
-       navigator.serviceWorker.register('/service-worker.js')
-         .then(registration => console.log('SW registrado'))
-         .catch(error => console.log('Error en SW:', error));
-     }
-     
+// Removí el registro manual de service worker aquí, ya que Vite PWA lo maneja automáticamente.
+// Si lo dejas, podría causar conflictos, así que elimínalo.
+
 export default App;
