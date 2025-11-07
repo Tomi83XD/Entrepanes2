@@ -22,6 +22,7 @@ function AdminPanel() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
+    const [messageType, setMessageType] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [menuItems, setMenuItems] = useState([]);
     
@@ -150,17 +151,22 @@ function AdminPanel() {
     }, [isAdmin]);
 
     const handleLogin = async () => {
-        setMessage('');
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-        } catch (error) {
-            let errorMessage = "Error al iniciar sesión. Inténtalo de nuevo.";
-            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-                 errorMessage = "Correo o contraseña incorrectos.";
-            }
-            setMessage(errorMessage);
+    setMessage('');
+    setMessageType(''); // Limpiar el tipo también
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        // Opcional: puedes agregar un mensaje de éxito si quieres
+        // setMessage('Inicio de sesión exitoso');
+        // setMessageType('success');
+    } catch (error) {
+        let errorMessage = "Error al iniciar sesión. Inténtalo de nuevo.";
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+             errorMessage = "Correo o contraseña incorrectos.";
         }
-    };
+        setMessage(errorMessage);
+        setMessageType('error'); // Marcar como error
+    }
+};
 
     const handleImageUpload = (e, isEditing = false) => {
         const file = e.target.files[0];
@@ -299,8 +305,7 @@ function AdminPanel() {
     const handleLogout = () => {
         signOut(auth);
     };
-
-    // Nuevas funciones para mejoras
+    
     const exportSalesToCSV = () => {
         const csvData = dailySales.map(sale => ({
             ID: sale.id,
@@ -390,7 +395,11 @@ function AdminPanel() {
                     </div>
 
                     {message && (
-                        <p className={`mt-4 text-center font-semibold rounded-lg p-3 ${message.includes('Error') || message.includes('denegado') ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                        <p className={`mt-4 text-center font-semibold rounded-lg p-3 ${
+                            messageType === 'error' 
+                                ? 'bg-red-100 text-red-600' 
+                                : 'bg-green-100 text-green-600'
+                        }`}>
                             {message}
                         </p>
                     )}
