@@ -38,9 +38,13 @@ self.addEventListener('fetch', (event) => {
   if (url.includes('firebaseio.com') || 
       url.includes('googleapis.com') || 
       url.includes('firebase.com') ||
-      url.includes('google.com/recaptcha') ||
-      url.includes('firestore.googleapis.com')) {
-    // Dejar pasar la petición directamente sin interceptar
+      url.includes('google.com') ||
+      url.includes('firestore') ||
+      url.includes('cloudfunctions.net') || // Si usas Cloud Functions
+      event.request.method === 'POST' || // No cachear POST requests
+      event.request.method === 'PUT' ||
+      event.request.method === 'DELETE') {
+    // Dejar pasar sin interceptar
     return;
   }
   
