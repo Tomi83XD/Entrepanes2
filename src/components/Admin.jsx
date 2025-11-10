@@ -807,15 +807,6 @@ function AdminPanel() {
 
                 {/* Ventas del Día con Estadísticas */}
                 <div className="bg-white rounded-3xl shadow-2xl p-6">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-2xl font-bold text-gray-800">📊 Ventas del Día ({dailySales.length} pedidos)</h2>
-                        <button 
-                            onClick={exportSalesToCSV}
-                            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg"
-                        >
-                            📄 Exportar CSV
-                        </button>
-                    </div>
                     
                     {/* Estadísticas Rápidas */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
