@@ -1,16 +1,15 @@
 {
-  "short_name": "Entre Panes App",
-  "name": "entre panes",
-  "description": "e-commerce de sanguches",
+  "short_name": "Entrepanes",
+  "name": "Entrepanes VCP",
   "icons": [
     {
-      "src": "icon-192x192.png",
+      "src": "manifest-icon-192.maskable.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512x512.png",
+      "src": "manifest-icon-512.maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
