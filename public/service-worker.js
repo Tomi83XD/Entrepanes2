@@ -1,4 +1,4 @@
-const CACHE_NAME = 'entrepanes-v1';
+const CACHE_NAME = 'entrepanes-v2'; // Incrementa la versión
 const urlsToCache = [
   '/',
   '/index.html',
@@ -34,27 +34,34 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
   
-  // IGNORAR todas las peticiones de Firebase/Firestore/Google APIs
+  // IMPORTANTE: Dejar pasar TODAS las peticiones de Firebase sin interceptar
   if (url.includes('firebaseio.com') || 
       url.includes('googleapis.com') || 
       url.includes('firebase.com') ||
+      url.includes('firebasestorage.googleapis.com') || // Para imágenes
       url.includes('google.com') ||
       url.includes('firestore') ||
-      url.includes('cloudfunctions.net') || // Si usas Cloud Functions
-      event.request.method === 'POST' || // No cachear POST requests
+      url.includes('cloudfunctions.net') ||
+      url.includes('identitytoolkit.googleapis.com') || // Para autenticación
+      url.includes('securetoken.googleapis.com') || // Para tokens
+      event.request.method === 'POST' || 
       event.request.method === 'PUT' ||
-      event.request.method === 'DELETE') {
-    // Dejar pasar sin interceptar
+      event.request.method === 'DELETE' ||
+      event.request.method === 'PATCH') {
+    
+    // CRÍTICO: Devolver fetch directamente sin cachear
+    event.respondWith(fetch(event.request));
     return;
   }
   
-  // Para el resto de peticiones, usar cache first
+  // Para el resto de peticiones (assets estáticos), usar cache first
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
         if (response) {
           return response;
         }
+        
         return fetch(event.request).then((response) => {
           // Solo cachear respuestas válidas
           if (!response || response.status !== 200 || response.type !== 'basic') {
@@ -68,7 +75,17 @@ self.addEventListener('fetch', (event) => {
             });
           
           return response;
+        }).catch((error) => {
+          console.error('Fetch failed:', error);
+          throw error;
         });
       })
   );
+});
+
+// Opcional: Manejar mensajes desde la app
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

@@ -1,6 +1,7 @@
 {
   "short_name": "Entrepanes",
   "name": "Entrepanes VCP",
+  "description": "Los mejores sándwiches de Carlos Paz",
   "icons": [
     {
       "src": "manifest-icon-192.maskable.png",
@@ -15,8 +16,10 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "theme_color": "#000000",
+  "orientation": "portrait",
+  "theme_color": "#ca8a04",
   "background_color": "#ffffff"
 }
